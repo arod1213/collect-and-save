@@ -11,10 +11,20 @@ pub const PathType = enum(u3) {
     AbletonBuiltin = 7,
 };
 
+// const RelativePath = struct {
+//     RelativePathElement:
+// }
+const FileInfo11 = struct {
+    HasRelativePath: bool,
+    RelativePathType: PathType = .NA,
+    // RelativePath: RelativePath,
+};
+
 pub const FileInfo = struct {
     RelativePathType: PathType = .NA,
     RelativePath: []const u8,
     Path: []const u8,
+    // Name: ?[]const u8 = null,
 
     // Type: usize,
 

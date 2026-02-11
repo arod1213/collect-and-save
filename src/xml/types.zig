@@ -14,6 +14,13 @@ fn cPtrToNull(comptime T: type, x: [*c]T) ?T {
     return x.*;
 }
 
+pub fn XmlParam(comptime T: type, name: []const u8) type {
+    return struct {
+        value: T,
+        name: []const u8,
+    };
+}
+
 pub const Doc = struct {
     ptr: *c.xmlDoc,
     root: ?Node,

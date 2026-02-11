@@ -10,6 +10,7 @@ const c = @cImport({
 const types = @import("./types.zig");
 pub const Doc = types.Doc;
 pub const Node = types.Node;
+pub const XmlParam = types.XmlParam;
 
 pub fn noOp(x: Node) !Node {
     return x;
@@ -42,6 +43,11 @@ fn saveUniqueNode(comptime T: type, alloc: Allocator, node: Node, name: []const 
             try saveUniqueNode(T, alloc, child, name, map, key);
         }
     }
+}
+
+pub fn parseNodeParam(comptime T: type, node: *const Node, param: XmlParam(T)) !T {
+    const value = try node.getProperty(param.name);
+    return try valToT(T, value);
 }
 
 pub fn parseNodeToT(comptime T: type, alloc: Allocator, node: *const Node, property_name: [:0]const u8) !T {
