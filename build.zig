@@ -22,9 +22,7 @@ const std = @import("std");
 // }
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{
-        .default_target = .{ .cpu_arch = .x86_64 },
-    });
+    const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const recent_files = b.addModule("recent_files", .{

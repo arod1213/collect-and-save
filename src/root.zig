@@ -48,7 +48,10 @@ fn writeFileInfo(f: *const FileInfo, prefix: []const u8, success: bool) void {
 }
 
 pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !void {
-    var file = try std.fs.cwd().openFile(filepath, .{});
+    var file = std.fs.cwd().openFile(filepath, .{}) catch |e| {
+        std.log.err("could not find file {s}", .{filepath});
+        return e;
+    };
     defer file.close();
 
     // TODO: look into real tmp directories

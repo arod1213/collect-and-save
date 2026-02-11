@@ -27,9 +27,11 @@ fn saveUniqueNode(comptime T: type, alloc: Allocator, node: Node, name: []const 
 
     while (current) |n| : (current = n.next()) {
         if (std.mem.eql(u8, n.name, name)) {
-            const value = parseNodeToT(T, &n, "Value") catch continue;
+            const value = parseNodeToT(T, alloc, &n, "Value") catch continue;
             const key_val = key(value);
-            const res = try map.getOrPut(key_val);
+
+            const owned_key = try alloc.dupe(u8, key_val);
+            const res = try map.getOrPut(owned_key);
             if (res.found_existing) {
                 continue;
             }
@@ -42,7 +44,7 @@ fn saveUniqueNode(comptime T: type, alloc: Allocator, node: Node, name: []const 
     }
 }
 
-pub fn parseNodeToT(comptime T: type, node: *const Node, property_name: [:0]const u8) !T {
+pub fn parseNodeToT(comptime T: type, alloc: Allocator, node: *const Node, property_name: [:0]const u8) !T {
     const info = @typeInfo(T);
     assert(info == .@"struct");
 
@@ -50,14 +52,21 @@ pub fn parseNodeToT(comptime T: type, node: *const Node, property_name: [:0]cons
     var child = node.children();
 
     // TODO: this doesnt check all fields are initialized
+    var map = std.StringHashMap(bool).init(alloc);
+    defer map.deinit();
+
     while (child) |ch| : (child = ch.next()) {
         const value = ch.getProperty(property_name) catch continue;
-        try setField(T, &target, ch.name, value);
+        try setField(T, &target, ch.name, value, &map);
+    }
+
+    inline for (info.@"struct".fields) |field| {
+        _ = map.get(field.name) orelse return error.MissingField;
     }
     return target;
 }
 
-fn setField(comptime T: type, target: *T, name: []const u8, value: []const u8) !void {
+fn setField(comptime T: type, target: *T, name: []const u8, value: []const u8, map: *std.StringHashMap(bool)) !void {
     const info = @typeInfo(T);
     assert(info == .@"struct");
     inline for (info.@"struct".fields) |field| {
@@ -69,6 +78,7 @@ fn setField(comptime T: type, target: *T, name: []const u8, value: []const u8) !
                 return error.MissingField;
             };
             @field(target.*, field.name) = variable;
+            try map.put(field.name, true);
         }
     }
 }
