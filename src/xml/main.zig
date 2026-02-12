@@ -10,6 +10,7 @@ const c = @cImport({
 const types = @import("./types.zig");
 pub const Doc = types.Doc;
 pub const Node = types.Node;
+
 const parse = @import("./parse.zig");
 
 pub fn getUniqueNodes(comptime T: type, alloc: Allocator, head: Node, name: []const u8, key: fn (T) []const u8) !std.StringArrayHashMap(T) {
@@ -28,11 +29,10 @@ fn saveUniqueNode(comptime T: type, alloc: Allocator, node: Node, name: []const 
     while (current) |n| : (current = n.next()) {
         if (std.mem.eql(u8, n.name, name)) {
             // change field name for non structs
-            const value = parse.getParam(T, alloc, n, null) catch |e| {
+            const value = parse.nodeToT(T, alloc, n) catch |e| {
                 std.log.err("parse err: {any}", .{e});
                 continue;
             };
-            // const value = parseNodeToT(T, alloc, &n, "Value") catch continue;
             const key_val = key(value);
 
             const owned_key = try alloc.dupe(u8, key_val);

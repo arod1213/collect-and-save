@@ -75,7 +75,7 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     if (doc.root == null) return error.NoRoot;
     defer doc.deinit();
 
-    var map = try xml.getUniqueNodes(FileInfo, alloc, doc.root.?, "FileRef", FileInfo.key);
+    var map = try xml.getUniqueNodes(ableton.FileInfo10, alloc, doc.root.?, "FileRef", ableton.FileInfo10.key);
     defer map.deinit();
 
     var session_dir = try collect.getSessionDir(filepath);
@@ -84,25 +84,26 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     print("Session: {s}{s}{s}\n", .{ Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
 
     var count: usize = 0;
-    const prefix = if (dry_run) "would save" else "saved";
+    // const prefix = if (dry_run) "would save" else "saved";
     for (map.values()) |f| {
-        if (!f.shouldCollect(alloc, session_dir)) continue;
+        // if (!f.shouldCollect(alloc, session_dir)) continue;
 
         if (dry_run) {
-            const exists = checks.fileExists(f.Path.Value);
-            writeFileInfo(&f, prefix, exists);
+            // const exists = checks.fileExists(f.Name.Value);
+            // writeFileInfo(&f, prefix, exists);
         } else {
-            resolveFile(alloc, session_dir, f.Path.Value) catch {
-                writeFileInfo(&f, prefix, false);
+            resolveFile(alloc, session_dir, f.name()) catch {
+                // writeFileInfo(&f, prefix, false);
                 continue;
             };
-            writeFileInfo(&f, prefix, true);
+            // writeFileInfo(&f, prefix, true);
         }
         count += 1;
     }
     if (count == 0) {
         print("\tNo files to collect..\n", .{});
     }
+    print("found {d}\n", .{count});
 }
 
 pub fn collectInfo(alloc: Allocator, _: *std.Io.Writer, filepath: []const u8) !void {

@@ -14,6 +14,7 @@ fn cPtrToNull(comptime T: type, x: [*c]T) ?T {
     return x.*;
 }
 
+// FIELD PARSE TYPES
 pub const Doc = struct {
     ptr: *c.xmlDoc,
     root: ?Node,
@@ -45,20 +46,35 @@ pub const Doc = struct {
     }
 };
 
+pub const NodeType = enum(c_uint) {
+    Element = c.XML_ELEMENT_NODE,
+    Atrribute = c.XML_ATTRIBUTE_NODE,
+    Text = c.XML_TEXT_NODE,
+    CDataSection = c.XML_CDATA_SECTION_NODE,
+    Comment = c.XML_COMMENT_NODE,
+    Document = c.XML_DOCUMENT_NODE,
+    PI = c.XML_PI_NODE,
+    EntityRef = c.XML_ENTITY_REF_NODE,
+    DocumentFrag = c.XML_DOCUMENT_FRAG_NODE,
+};
+
 pub const Node = struct {
     ptr: c.xmlNode,
     name: []const u8,
     next_node: ?c.xmlNode,
     child_node: ?c.xmlNode,
     parent_node: ?c.xmlNode,
+    node_type: NodeType,
 
     pub fn init(ptr: c.xmlNode) Node {
+        const node_type = std.meta.intToEnum(NodeType, ptr.type) catch .Text;
         return .{
             .ptr = ptr,
             .name = std.mem.span(ptr.name),
             .child_node = cPtrToNull(c.xmlNode, ptr.children),
             .parent_node = cPtrToNull(c.xmlNode, ptr.parent),
             .next_node = cPtrToNull(c.xmlNode, ptr.next),
+            .node_type = node_type,
         };
     }
 
