@@ -2,15 +2,12 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 const print = std.debug.print;
-const c = @cImport({
-    @cInclude("libxml/parser.h");
-    @cInclude("libxml/tree.h");
-});
 
 const types = @import("./types.zig");
 pub const Doc = types.Doc;
 
 pub const Node = types.Node;
+pub const find = @import("./find.zig");
 
 fn getProperty(comptime T: type, node: Node, property_name: []const u8) !T {
     assert(@typeInfo(T) != .@"struct");
@@ -34,6 +31,13 @@ fn getChild(parent: Node, field_name: []const u8) ?Node {
     return null;
 }
 
+fn simpleTypeName(comptime T: type) []const u8 {
+    const full = @typeName(T);
+    const idx = std.mem.lastIndexOf(u8, full, ".") orelse return full;
+    // TODO: this could break
+    return full[idx + 1 ..];
+}
+
 pub fn nodeToT(comptime T: type, alloc: Allocator, node: Node) !T {
     const info = @typeInfo(T);
     assert(info == .@"struct");
@@ -41,15 +45,46 @@ pub fn nodeToT(comptime T: type, alloc: Allocator, node: Node) !T {
     var target: T = undefined;
     inline for (info.@"struct".fields) |field| {
         const field_info = @typeInfo(field.type);
-        if (field_info != .@"struct") {
-            std.log.info("searching for {s} prop {s}", .{ node.name, field.name });
-            const value = try getProperty(field.type, node, field.name);
-            @field(target, field.name) = value;
-        } else {
-            std.log.info("searching for {s} child {s}", .{ node.name, field.name });
-            const child = getChild(node, field.name) orelse return error.MissingChildField;
-            const value = try nodeToT(field.type, alloc, child);
-            @field(target, field.name) = value;
+        switch (field_info) {
+            .@"struct" => {
+                const child = find.getNode(node, field.name, .child) orelse return error.MissingField;
+                const value = try nodeToT(field.type, alloc, child);
+                std.log.info("SETTING {s} to {any}", .{ field.name, field.type });
+                @field(target, field.name) = value;
+            },
+            .array => {}, // parse [4] of struct -- no u8 or str allowed as array or pointer
+            .pointer => |ptr| {
+                if (ptr.child == u8) {
+                    const value = try node.getProperty(field.name);
+                    @field(target, field.name) = value;
+                } else {
+                    switch (@typeInfo(ptr.child)) {
+                        .@"struct" => {
+                            const parent = find.getNode(node, field.name, .child) orelse return error.MissingField;
+                            const type_name = simpleTypeName(ptr.child);
+                            const children = try find.getNodes(alloc, parent, type_name, .child);
+
+                            std.log.info("\t {s} HAS {d} children", .{ parent.name, children.len });
+
+                            var list = try std.ArrayList(ptr.child).initCapacity(alloc, 5);
+                            errdefer list.deinit(alloc);
+                            for (children) |child| {
+                                const child_val = try nodeToT(ptr.child, alloc, child);
+                                try list.append(alloc, child_val);
+                            }
+                            const slice = try list.toOwnedSlice(alloc);
+                            @field(target, field.name) = slice;
+                        },
+                        else => {
+                            @compileError("Unsupported Pointer child type - only structs for right now");
+                        },
+                    }
+                }
+            }, // parse []struct
+            else => {
+                const value = try getProperty(field.type, node, field.name);
+                @field(target, field.name) = value;
+            },
         }
     }
     return target;

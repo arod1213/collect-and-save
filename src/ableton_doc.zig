@@ -12,19 +12,20 @@ pub const PathType = enum(u3) {
     AbletonBuiltin = 7,
 };
 
-const PathElement = struct {
-    Id: usize,
-    Dir: []const u8,
-};
-
 fn ValueWrapper(comptime T: type) type {
     return struct {
         Value: T,
     };
 }
 
+const RelativePathElement = struct {
+    Id: usize,
+    Dir: []const u8,
+};
+
 pub const FileInfo10 = struct {
     Name: ValueWrapper([]const u8),
+    RelativePath: []RelativePathElement,
 
     pub fn name(self: FileInfo10) []const u8 {
         return self.Name.Value;
@@ -36,6 +37,10 @@ pub const FileInfo10 = struct {
     pub fn format(self: FileInfo10, w: *std.Io.Writer) !void {
         _ = try w.print("{s}\n", .{std.fs.path.basename(self.name())});
         _ = try w.print("\t@: {s}\n", .{self.name()});
+        _ = try w.print("\telem count {d}\n", .{self.RelativePath.len});
+        for (self.RelativePath) |elem| {
+            _ = try w.print("\telem: ID: {d} in {s}\n", .{ elem.Id, elem.Dir });
+        }
     }
 };
 

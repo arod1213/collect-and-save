@@ -88,6 +88,7 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     for (map.values()) |f| {
         // if (!f.shouldCollect(alloc, session_dir)) continue;
 
+        print("\n{f}\n", .{f});
         if (dry_run) {
             // const exists = checks.fileExists(f.Name.Value);
             // writeFileInfo(&f, prefix, exists);
