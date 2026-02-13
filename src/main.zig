@@ -31,9 +31,11 @@ fn collectSet(io: std.Io, alloc: Allocator, writer: *std.Io.Writer, filepath: []
 }
 
 pub fn main(init: std.process.Init) !void {
-    const alloc = init.arena.allocator();
+    var arena = std.heap.ArenaAllocator.init(init.gpa);
+    defer arena.deinit();
+    const gpa = init.arena.allocator();
 
-    var io = std.Io.Threaded.init(alloc, .{});
+    var io = std.Io.Threaded.init(gpa, .{});
     defer io.deinit();
 
     var stdout = File.stdout();
@@ -41,7 +43,7 @@ pub fn main(init: std.process.Init) !void {
     var buffer: [4096]u8 = undefined;
     var writer = stdout.writer(io.io(), &buffer);
 
-    const args = try init.minimal.args.toSlice(alloc);
+    const args = try init.minimal.args.toSlice(gpa);
     switch (args.len) {
         0 => {
             _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
@@ -64,7 +66,7 @@ pub fn main(init: std.process.Init) !void {
 
     const paths = args[2..];
     for (paths) |filepath| {
-        defer _ = init.arena.reset(.free_all);
-        collectSet(io.io(), alloc, &writer.interface, filepath, &cmd) catch continue;
+        defer _ = arena.reset(.free_all);
+        collectSet(io.io(), gpa, &writer.interface, filepath, &cmd) catch continue;
     }
 }
