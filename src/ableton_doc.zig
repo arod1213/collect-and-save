@@ -14,6 +14,7 @@ pub const PathType = enum(u3) {
 };
 
 pub const AbletonVersion = enum(u8) {
+    nine = 9,
     ten = 10,
     eleven = 11,
     twelve = 12,
@@ -22,8 +23,8 @@ pub const AbletonVersion = enum(u8) {
 pub const Header = struct {
     MajorVersion: u8,
     MinorVersion: []const u8,
-    SchemaChangeCount: []const u8,
     Creator: []const u8,
+    // SchemaChangeCount: []const u8, // not avail in Live 9
 
     pub fn version(self: Header) ?AbletonVersion {
         if (std.mem.indexOf(u8, self.MinorVersion, ".")) |idx| {
@@ -143,6 +144,6 @@ pub fn pathElementLessThan(_: void, self: RelativePathElement, other: RelativePa
 }
 
 const RelativePathElement = struct {
-    Id: usize,
+    Id: usize = 0,
     Dir: []const u8,
 };

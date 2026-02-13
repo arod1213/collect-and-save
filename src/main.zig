@@ -6,7 +6,7 @@ const Color = lib.Color;
 const Dir = std.Io.Dir;
 const File = std.Io.File;
 
-const Command = enum { save, xml, check, info };
+const Command = lib.Command;
 fn commandInfo(w: *std.Io.Writer) !void {
     _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
     const info = @typeInfo(Command);
@@ -39,9 +39,7 @@ fn collectSet(io: std.Io, alloc: Allocator, writer: *std.Io.Writer, filepath: []
             defer file.close(io);
             try lib.gzip.writeXml(io, &file, writer);
         },
-        .save => try lib.collectAndSave(io, alloc, filepath, false),
-        .check => try lib.collectAndSave(io, alloc, filepath, true),
-        .info => try lib.collectInfo(io, alloc, writer, filepath),
+        .save, .check, .info => try lib.collectAndSave(io, alloc, filepath, cmd.*),
     }
 }
 

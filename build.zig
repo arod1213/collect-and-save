@@ -1,9 +1,5 @@
 const std = @import("std");
 
-// const sdk = b.sysroot orelse "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
-// xml.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/include" }) });
-// xml.addLibraryPath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/lib" }) });
-
 // fn install(target: *std.Build.ResolvedTarget) !void {
 // cp for mac
 // install into correct locations based on target tag
@@ -51,8 +47,14 @@ pub fn build(b: *std.Build) void {
             // xml.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
         },
         .macos => {
-            // xml.addIncludePath(.{ .cwd_relative = "/usr/local/include/libxml2" });
-            // xml.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include/libxml2" });
+            if (target.result.cpu.arch == .x86_64) {
+                const sdk = b.sysroot orelse "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
+                xml.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/include" }) });
+                xml.addLibraryPath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/lib" }) });
+            } else {
+                // xml.addIncludePath(.{ .cwd_relative = "/usr/local/include/libxml2" });
+                // xml.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include/libxml2" });
+            }
         },
         else => {},
     }

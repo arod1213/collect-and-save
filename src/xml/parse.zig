@@ -54,7 +54,7 @@ pub fn nodeToT(comptime T: type, alloc: Allocator, node: Node) !T {
             .array => {}, // parse [4] of struct -- no u8 or str allowed as array or pointer
             .pointer => |ptr| {
                 if (ptr.child == u8) {
-                    const value = try node.getProperty(field.name);
+                    const value = node.getProperty(field.name) catch |e| if (field.default_value_ptr) |def| def else return e;
                     @field(target, field.name) = value;
                 } else {
                     switch (@typeInfo(ptr.child)) {
@@ -79,7 +79,9 @@ pub fn nodeToT(comptime T: type, alloc: Allocator, node: Node) !T {
                 }
             }, // parse []struct
             else => {
-                const value = try getProperty(field.type, node, field.name);
+                const value = getProperty(field.type, node, field.name) catch |e| blk: {
+                    break :blk field.defaultValue() orelse return e;
+                };
                 @field(target, field.name) = value;
             },
         }
