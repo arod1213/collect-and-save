@@ -73,17 +73,18 @@ fn processFileRefs(comptime T: type, io: std.Io, alloc: Allocator, head: Node, s
 }
 
 pub fn collectAndSave(io: std.Io, alloc: Allocator, filepath: []const u8, cmd: Command) !void {
-    var file = std.Io.Dir.cwd().openFile(io, filepath, .{}) catch |e| {
+    const cwd = Dir.cwd();
+    var file = cwd.openFile(io, filepath, .{}) catch |e| {
         std.log.err("could not find file {s}", .{filepath});
         return e;
     };
     defer file.close(io);
 
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
-    var tmp_file = try std.Io.Dir.cwd().createFile(io, tmp_name, .{ .truncate = true });
+    var tmp_file = try cwd.createFile(io, tmp_name, .{ .truncate = true });
     defer {
         tmp_file.close(io);
-        std.Io.Dir.cwd().deleteFile(io, tmp_name) catch {};
+        cwd.deleteFile(io, tmp_name) catch {};
     }
 
     var write_buffer: [4096]u8 = undefined;
@@ -116,14 +117,10 @@ pub fn collectAndSave(io: std.Io, alloc: Allocator, filepath: []const u8, cmd: C
     switch (ableton_version) {
         .nine, .ten => {
             const K = ableton.Ableton10;
-            var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
-            defer map.deinit();
             try processFileRefs(K, io, alloc, doc.root.?, session_dir, cmd);
         },
         .eleven, .twelve => {
             const K = ableton.Ableton11;
-            var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
-            defer map.deinit();
             try processFileRefs(K, io, alloc, doc.root.?, session_dir, cmd);
         },
     }

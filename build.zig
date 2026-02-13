@@ -1,22 +1,5 @@
 const std = @import("std");
 
-// fn install(target: *std.Build.ResolvedTarget) !void {
-// cp for mac
-// install into correct locations based on target tag
-//
-// const location = switch (target.result.os.tag) {
-//     .macos => "/usr/loca/bin/cms",
-//     .linux => "/home/arod/.local/bin/cms",
-//     else => "./shit/cms",
-// };
-// _ = b.addSystemCommand(&[_][]const u8{
-//     "cp",
-//     exe.installed_path orelse unreachable,
-//     location,
-// });
-// b.installArtifact(exe);
-// }
-
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
