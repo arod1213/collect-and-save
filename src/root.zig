@@ -16,7 +16,26 @@ const Doc = xml.Doc;
 const ableton = @import("ableton_doc.zig");
 const PathType = ableton.PathType;
 
-pub const Command = enum { save, xml, check, info };
+pub const Command = enum {
+    save,
+    xml,
+    check,
+    info,
+
+    pub fn showInfo(w: *std.Io.Writer) !void {
+        _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
+        const info = @typeInfo(Command);
+
+        inline for (info.@"enum".fields) |field| {
+            _ = try w.print("\t{s}", .{field.name});
+        }
+        _ = try w.write("\n");
+        try w.flush();
+
+        return;
+    }
+};
+
 fn collectFile(comptime T: type, io: std.Io, alloc: Allocator, f: T, session_dir: Dir, cmd: Command) !void {
     const sample_path = f.filepath(alloc);
     switch (cmd) {

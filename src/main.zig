@@ -1,24 +1,11 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const print = std.debug.print;
 const lib = @import("collect_and_save");
-const Color = lib.Color;
+
 const Dir = std.Io.Dir;
 const File = std.Io.File;
-
 const Command = lib.Command;
-fn commandInfo(w: *std.Io.Writer) !void {
-    _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
-    const info = @typeInfo(Command);
-
-    inline for (info.@"enum".fields) |field| {
-        _ = try w.print("\t{s}", .{field.name});
-    }
-    _ = try w.write("\n");
-    try w.flush();
-
-    return;
-}
+const Color = lib.Color;
 
 fn collectSet(io: std.Io, alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
     if (!lib.checks.validAbleton(filepath)) {
@@ -45,9 +32,7 @@ fn collectSet(io: std.Io, alloc: Allocator, writer: *std.Io.Writer, filepath: []
 
 // TODO: remove setAsCwd() calls as it break multiple lookups
 pub fn main(init: std.process.Init) !void {
-    var arena = init.arena;
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    const alloc = init.arena.allocator();
 
     var io = std.Io.Threaded.init(alloc, .{});
     defer io.deinit();
@@ -64,7 +49,7 @@ pub fn main(init: std.process.Init) !void {
             try writer.interface.flush();
             return;
         },
-        1 => return try commandInfo(&writer.interface),
+        1 => return try Command.showInfo(&writer.interface),
         2 => {
             _ = try writer.interface.print("{s}please provide a file{s}\n", .{ Color.red.code(), Color.reset.code() });
             try writer.interface.flush();
@@ -74,13 +59,13 @@ pub fn main(init: std.process.Init) !void {
     }
 
     const cmd = std.meta.stringToEnum(Command, args[1]) orelse {
-        try commandInfo(&writer.interface);
+        try Command.showInfo(&writer.interface);
         return;
     };
 
     const paths = args[2..];
     for (paths) |filepath| {
-        defer _ = arena.reset(.free_all);
+        defer _ = init.arena.reset(.free_all);
         // const filepath = std.mem.span(path);
         collectSet(io.io(), alloc, &writer.interface, filepath, &cmd) catch continue;
     }
