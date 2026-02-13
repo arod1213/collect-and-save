@@ -18,7 +18,7 @@ fn commandInfo(w: *std.Io.Writer) !void {
     return;
 }
 
-fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
+fn collectSet(io: std.Io, alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
     if (!lib.checks.validAbleton(filepath)) {
         _ = try writer.print("{s}{s} is not a valid ableton file{s}\n", .{ Color.red.code(), std.fs.path.basename(filepath), Color.reset.code() });
         try writer.flush();
@@ -33,29 +33,31 @@ fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cm
 
     switch (cmd.*) {
         .xml => {
-            var file = try std.fs.cwd().openFile(filepath, .{});
-            defer file.close();
-            try lib.gzip.writeXml(&file, writer);
+            var file = try std.Io.Dir.cwd().openFile(io, filepath, .{});
+            defer file.close(io);
+            try lib.gzip.writeXml(io, &file, writer);
         },
-        .save => try lib.collectAndSave(alloc, filepath, false),
-        .check => try lib.collectAndSave(alloc, filepath, true),
-        .info => try lib.collectInfo(alloc, writer, filepath),
+        .save => try lib.collectAndSave(io, alloc, filepath, false),
+        .check => try lib.collectAndSave(io, alloc, filepath, true),
+        .info => try lib.collectInfo(io, alloc, writer, filepath),
     }
 }
 
 // TODO: remove setAsCwd() calls as it break multiple lookups
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{ .verbose_log = false }){};
-    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
+pub fn main(init: std.process.Init) !void {
+    var arena = init.arena;
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    var stdout = std.fs.File.stdout();
-    defer stdout.close();
-    var buffer: [4096]u8 = undefined;
-    var writer = stdout.writer(&buffer);
+    var io = std.Io.Threaded.init(alloc, .{});
+    defer io.deinit();
 
-    const args = std.os.argv;
+    var stdout = std.Io.File.stdout();
+    defer stdout.close(io.io());
+    var buffer: [4096]u8 = undefined;
+    var writer = stdout.writer(io.io(), &buffer);
+
+    const args = try init.minimal.args.toSlice(alloc);
     switch (args.len) {
         0 => {
             _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
@@ -71,15 +73,15 @@ pub fn main() !void {
         else => {},
     }
 
-    const cmd = std.meta.stringToEnum(Command, std.mem.span(args[1])) orelse {
+    const cmd = std.meta.stringToEnum(Command, args[1]) orelse {
         try commandInfo(&writer.interface);
         return;
     };
 
     const paths = args[2..];
-    for (paths) |path| {
+    for (paths) |filepath| {
         defer _ = arena.reset(.free_all);
-        const filepath = std.mem.span(path);
-        collectSet(alloc, &writer.interface, filepath, &cmd) catch continue;
+        // const filepath = std.mem.span(path);
+        collectSet(io.io(), alloc, &writer.interface, filepath, &cmd) catch continue;
     }
 }

@@ -67,7 +67,7 @@ pub const Node = struct {
     node_type: NodeType,
 
     pub fn init(ptr: c.xmlNode) Node {
-        const node_type = std.meta.intToEnum(NodeType, ptr.type) catch .Text;
+        const node_type: NodeType = @enumFromInt(ptr.type);
         return .{
             .ptr = ptr,
             .name = std.mem.span(ptr.name),

@@ -105,12 +105,12 @@ fn strToT(comptime T: type, val: []const u8) !T {
                         // fallback to parse by string name
                         return std.meta.stringToEnum(T, val) orelse error.InvalidEnumTag;
                     };
-                    return try std.meta.intToEnum(T, digit);
+                    return std.enums.fromInt(T, digit) orelse return error.InvalidEnumTag;
                 },
                 else => unreachable, // unsupported for now
             }
             const digit = try std.fmt.parseInt(info.@"enum".tag_type, val, 10);
-            return try std.meta.intToEnum(T, digit);
+            return std.enums.fromInt(T, digit) orelse return error.InvalidEnumTag;
         },
         .pointer => |x| switch (x.child) {
             u8 => val,

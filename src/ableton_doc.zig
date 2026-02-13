@@ -28,7 +28,7 @@ pub const Header = struct {
         if (std.mem.indexOf(u8, self.MinorVersion, ".")) |idx| {
             const text = self.MinorVersion[0..idx];
             const digit = std.fmt.parseInt(u8, text, 10) catch return null;
-            return std.meta.intToEnum(AbletonVersion, digit) catch return null;
+            return std.enums.fromInt(AbletonVersion, digit);
         }
         return null;
     }
@@ -40,13 +40,13 @@ fn Value(comptime T: type) type {
     };
 }
 
-pub fn shouldCollect(alloc: Allocator, cwd: std.fs.Dir, path_type: PathType, filepath: []const u8) bool {
+pub fn shouldCollect(io: std.Io, alloc: Allocator, cwd: std.Io.Dir, path_type: PathType, filepath: []const u8) bool {
     switch (path_type) {
         .External => {},
         else => return false,
     }
 
-    const file_exists = collect.fileInDir(alloc, cwd, std.fs.path.basename(filepath)) catch false;
+    const file_exists = collect.fileInDir(io, alloc, cwd, std.fs.path.basename(filepath)) catch false;
     if (file_exists) {
         return false;
     }
