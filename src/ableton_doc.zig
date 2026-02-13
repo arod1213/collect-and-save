@@ -94,7 +94,7 @@ pub const Ableton11 = struct {
     }
 
     pub fn format(self: Ableton11, w: *std.Io.Writer) !void {
-        const path = self.filepath();
+        const path = self.Path.Value;
         _ = try w.print("{s}\n", .{Dir.path.basename(path)});
         _ = try w.print("\t@: {s}\n", .{path});
         _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.Value});

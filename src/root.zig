@@ -17,18 +17,18 @@ const ableton = @import("ableton_doc.zig");
 const PathType = ableton.PathType;
 
 pub const Command = enum { save, xml, check, info };
-fn collectFile(comptime T: type, io: std.Io, alloc: Allocator, f: T, session_dir: std.fs.Dir, cmd: Command) !void {
+fn collectFile(comptime T: type, io: std.Io, alloc: Allocator, f: T, session_dir: Dir, cmd: Command) !void {
     const sample_path = f.filepath(alloc);
     switch (cmd) {
         .check => {
-            if (!ableton.shouldCollect(alloc, session_dir, f.path_type(), sample_path)) return error.FileAlreadyFound;
-            const exists = checks.fileExists(sample_path);
+            if (!ableton.shouldCollect(io, alloc, session_dir, f.path_type(), sample_path)) return error.FileAlreadyFound;
+            const exists = checks.fileExists(io, sample_path);
             writeFileInfo(sample_path, "would save", exists);
         },
         .save => {
-            if (!ableton.shouldCollect(alloc, session_dir, f.path_type(), sample_path)) return error.FileAlreadyFound;
+            if (!ableton.shouldCollect(io, alloc, session_dir, f.path_type(), sample_path)) return error.FileAlreadyFound;
             const prefix = "saved";
-            resolveFile(alloc, session_dir, sample_path) catch |e| {
+            resolveFile(io, alloc, session_dir, sample_path) catch |e| {
                 writeFileInfo(sample_path, prefix, false);
                 return e;
             };
@@ -39,8 +39,8 @@ fn collectFile(comptime T: type, io: std.Io, alloc: Allocator, f: T, session_dir
     }
 }
 
-fn processFileRefs(comptime T: type, io: std.Io, alloc: Allocator, head: Node, session_dir: std.fs.Dir, cmd: Command) !void {
-    var map = try xml.getUniqueNodes(T, io, alloc, head, "FileRef", T.key);
+fn processFileRefs(comptime T: type, io: std.Io, alloc: Allocator, head: Node, session_dir: Dir, cmd: Command) !void {
+    var map = try xml.getUniqueNodes(T, alloc, head, "FileRef", T.key);
     defer map.deinit();
 
     var count: usize = 0;
@@ -99,51 +99,18 @@ pub fn collectAndSave(io: std.Io, alloc: Allocator, filepath: []const u8, cmd: C
             const K = ableton.Ableton10;
             var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
             defer map.deinit();
-<<<<<<< HEAD
-            try processFileRefs(K, io, alloc, doc.root.?, session_dir, dry_run);
-=======
-            try processFileRefs(K, alloc, doc.root.?, session_dir, cmd);
->>>>>>> origin
+            try processFileRefs(K, io, alloc, doc.root.?, session_dir, cmd);
         },
         .eleven, .twelve => {
             const K = ableton.Ableton11;
             var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
             defer map.deinit();
-<<<<<<< HEAD
-            try processFileRefs(K, io, alloc, doc.root.?, session_dir, dry_run);
-=======
-            try processFileRefs(K, alloc, doc.root.?, session_dir, cmd);
->>>>>>> origin
+            try processFileRefs(K, io, alloc, doc.root.?, session_dir, cmd);
         },
     }
 }
 
-<<<<<<< HEAD
-pub fn collectInfo(io: std.Io, alloc: Allocator, _: *std.Io.Writer, filepath: []const u8) !void {
-    var file = try Dir.cwd().openFile(io, filepath, .{});
-    defer file.close(io);
-
-    const xml_buffer = try gzip.unzipXml(io, alloc, &file);
-    const doc = try xml.Doc.initFromBuffer(xml_buffer);
-    if (doc.root == null) return error.NoRoot;
-
-    var map = try xml.getUniqueNodes(ableton.Ableton10, alloc, doc.root.?, "FileRef", ableton.Ableton10.key);
-    defer map.deinit();
-
-    var session_dir = try collect.getSessionDir(io, filepath);
-    defer session_dir.close(io);
-
-    print("Session: {s}{s}{s}\n", .{ Color.yellow.code(), Dir.path.basename(filepath), Color.reset.code() });
-
-    for (map.values()) |f| {
-        print("{f}\n", .{f});
-    }
-}
-
 fn resolveFile(io: std.Io, alloc: Allocator, session_dir: Dir, filepath: []const u8) !void {
-=======
-fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) !void {
->>>>>>> origin
     const new_dir = try collect.collectFolder(filepath);
 
     try session_dir.createDirPath(io, new_dir);
