@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const collect = @import("collect.zig");
 const xml = @import("xml");
+const Dir = std.Io.Dir;
 
 pub const PathType = enum(u3) {
     NA = 0,
@@ -46,7 +47,7 @@ pub fn shouldCollect(io: std.Io, alloc: Allocator, cwd: std.Io.Dir, path_type: P
         else => return false,
     }
 
-    const file_exists = collect.fileInDir(io, alloc, cwd, std.fs.path.basename(filepath)) catch false;
+    const file_exists = collect.fileInDir(io, alloc, cwd, Dir.path.basename(filepath)) catch false;
     if (file_exists) {
         return false;
     }
@@ -93,7 +94,7 @@ pub const Ableton11 = struct {
 
     pub fn format(self: Ableton11, w: *std.Io.Writer) !void {
         const path = self.filepath();
-        _ = try w.print("{s}\n", .{std.fs.path.basename(path)});
+        _ = try w.print("{s}\n", .{Dir.path.basename(path)});
         _ = try w.print("\t@: {s}\n", .{path});
         _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.Value});
     }
@@ -114,9 +115,9 @@ pub const Ableton10 = struct {
         std.mem.sort(RelativePathElement, self.RelativePath, {}, pathElementLessThan);
         var full_path: []const u8 = "";
         for (self.RelativePath) |rp| {
-            full_path = std.fs.path.join(alloc, &[_][]const u8{ full_path, rp.Dir }) catch continue;
+            full_path = Dir.path.join(alloc, &[_][]const u8{ full_path, rp.Dir }) catch continue;
         }
-        return std.fs.path.join(alloc, &[_][]const u8{ full_path, self.Name.Value }) catch return full_path;
+        return Dir.path.join(alloc, &[_][]const u8{ full_path, self.Name.Value }) catch return full_path;
     }
 
     pub fn path_type(self: Ableton10) PathType {
@@ -128,7 +129,7 @@ pub const Ableton10 = struct {
     }
 
     pub fn format(self: Ableton10, w: *std.Io.Writer) !void {
-        _ = try w.print("{s}\n", .{std.fs.path.basename(self.name())});
+        _ = try w.print("{s}\n", .{Dir.path.basename(self.name())});
         _ = try w.print("\t@: {s}\n", .{self.name()});
         _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.Value});
         for (self.RelativePath) |elem| {

@@ -108,17 +108,6 @@ pub fn collectInfo(io: std.Io, alloc: Allocator, _: *std.Io.Writer, filepath: []
     const doc = try xml.Doc.initFromBuffer(xml_buffer);
     if (doc.root == null) return error.NoRoot;
 
-    // _ = blk: {
-    //     const ableton_info = xml.parse.nodeToT(ableton.Header, alloc, doc.root.?) catch {
-    //         print("Unsupported Ableton Version\n", .{});
-    //         return error.UnsupportedVersion;
-    //     };
-    //     break :blk ableton_info.version() orelse {
-    //         print("Unsupported Ableton Version\n", .{});
-    //         return error.UnsupportedVersion;
-    //     };
-    //     };
-
     var map = try xml.getUniqueNodes(ableton.Ableton10, alloc, doc.root.?, "FileRef", ableton.Ableton10.key);
     defer map.deinit();
 
@@ -145,7 +134,6 @@ fn resolveFile(io: std.Io, alloc: Allocator, session_dir: Dir, filepath: []const
         const source_dirname = Dir.path.dirname(filepath) orelse "/";
         var source_dir = try Dir.openDirAbsolute(io, source_dirname, .{});
         defer source_dir.close(io);
-
 
         try source_dir.copyFile(filename, session_dir, new_path, io, .{});
         return;

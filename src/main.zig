@@ -3,6 +3,8 @@ const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const lib = @import("collect_and_save");
 const Color = lib.Color;
+const Dir = std.Io.Dir;
+const File = std.Io.File;
 
 const Command = enum { save, xml, check, info };
 fn commandInfo(w: *std.Io.Writer) !void {
@@ -20,20 +22,20 @@ fn commandInfo(w: *std.Io.Writer) !void {
 
 fn collectSet(io: std.Io, alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
     if (!lib.checks.validAbleton(filepath)) {
-        _ = try writer.print("{s}{s} is not a valid ableton file{s}\n", .{ Color.red.code(), std.fs.path.basename(filepath), Color.reset.code() });
+        _ = try writer.print("{s}{s} is not a valid ableton file{s}\n", .{ Color.red.code(), Dir.path.basename(filepath), Color.reset.code() });
         try writer.flush();
         return;
     }
 
     if (lib.checks.isBackup(filepath)) {
-        _ = try writer.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
+        _ = try writer.print("skipping backup: {s}\n", .{Dir.path.basename(filepath)});
         try writer.flush();
         return;
     }
 
     switch (cmd.*) {
         .xml => {
-            var file = try std.Io.Dir.cwd().openFile(io, filepath, .{});
+            var file = try Dir.cwd().openFile(io, filepath, .{});
             defer file.close(io);
             try lib.gzip.writeXml(io, &file, writer);
         },
@@ -52,7 +54,7 @@ pub fn main(init: std.process.Init) !void {
     var io = std.Io.Threaded.init(alloc, .{});
     defer io.deinit();
 
-    var stdout = std.Io.File.stdout();
+    var stdout = File.stdout();
     defer stdout.close(io.io());
     var buffer: [4096]u8 = undefined;
     var writer = stdout.writer(io.io(), &buffer);
