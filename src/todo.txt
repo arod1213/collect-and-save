@@ -1,8 +1,5 @@
 TODO:
 
-Better error messages
-!!! Implement streaming or tmp file for gzip to xml
-
 CLI Config setup
     > Config struct {
         ask_mode: per_session, per_audio, none
@@ -12,19 +9,6 @@ CLI Config setup
     add interactive mode
     first run check -> then if accepted collect
   
-! nodesByName should have a ref to the map to deduplicate before ending up in the main func
-  will cut allocations in half if not more
-
-! Update shouldCollect() method
-    probably some edges case to check out
-    write tests to simulate
-
-! Fix FileType enum (file type doesnt mean what i think it does)
-! Choose output directory based on file type and FileType enum (possibly?)
-    maybe still use unique directory to avoid overwrites
-! check session directory to see if file has already been collected
-    (do the above after dedup and before resolving the file aka copy)
-
 ask for user input before each file is scanned for unique types of scan
   also allow global scan type for all files
 
