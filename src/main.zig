@@ -30,7 +30,6 @@ fn collectSet(io: std.Io, alloc: Allocator, writer: *std.Io.Writer, filepath: []
     }
 }
 
-// TODO: remove setAsCwd() calls as it break multiple lookups
 pub fn main(init: std.process.Init) !void {
     const alloc = init.arena.allocator();
 
@@ -66,7 +65,6 @@ pub fn main(init: std.process.Init) !void {
     const paths = args[2..];
     for (paths) |filepath| {
         defer _ = init.arena.reset(.free_all);
-        // const filepath = std.mem.span(path);
         collectSet(io.io(), alloc, &writer.interface, filepath, &cmd) catch continue;
     }
 }
