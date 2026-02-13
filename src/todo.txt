@@ -1,16 +1,5 @@
 TODO:
 
-BACKWARDS COMPAT
-    previous versions of ableton have different xml formats
-      Example: 
-        <RelativePath Value="../Samples/Drums/Kick.wav" 
-      vs 
-        <RelativePath>
-            <RelativePathElement Id="97" Value="Samples"/>
-            <RelativePathElement Id="98" Value="Drums"/>
-        </RelativePath>
-        <Name Value="Kick.wav"/>
-
 Better error messages
 !!! Implement streaming or tmp file for gzip to xml
 

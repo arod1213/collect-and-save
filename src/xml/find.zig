@@ -1,11 +1,8 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const assert = std.debug.assert;
-const print = std.debug.print;
 
 const types = @import("./types.zig");
 pub const Doc = types.Doc;
-
 pub const Node = types.Node;
 
 pub const Direction = enum { child, neighbor };
