@@ -29,7 +29,6 @@ pub fn resolveFile(alloc: Allocator, cwd: std.fs.Dir, file_path: []const u8) !vo
         std.log.err("not handling absolute paths yet", .{});
         return;
     } else {
-        // std.log.info("movign {s} to {s}", .{ file_path, new_path });
         try cwd.copyFile(file_path, cwd, new_path, .{});
     }
 }

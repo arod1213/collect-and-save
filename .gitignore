@@ -3,5 +3,7 @@ zig-out/
 
 ableton/
 
+proj 1/
+proj 2/
 *.xml
 *.als
