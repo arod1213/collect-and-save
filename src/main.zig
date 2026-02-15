@@ -51,19 +51,21 @@ fn collectFiles(file_path: []const u8) !void {
 
 // TODO: remove setAsCwd() calls as it break multiple lookups
 pub fn main() !void {
-    const args = std.os.argv;
-    if (args.len < 2) {
-        std.log.err("please provide a file", .{});
-        return;
-    }
-    const cwd = std.fs.cwd();
-    const paths = args[1..];
-    for (paths) |path| {
-        // try outputXML(std.mem.span(path));
-        _ = collectFiles(std.mem.span(path)) catch continue;
-        try cwd.setAsCwd();
-        print("\n", .{});
-    }
+    const file = "./danny.xml";
+    try collect_and_save.xml.readDoc(file);
+    // const args = std.os.argv;
+    // if (args.len < 2) {
+    //     std.log.err("please provide a file", .{});
+    //     return;
+    // }
+    // const cwd = std.fs.cwd();
+    // const paths = args[1..];
+    // for (paths) |path| {
+    //     try outputXML(std.mem.span(path));
+    // _ = collectFiles(std.mem.span(path)) catch continue;
+    // try cwd.setAsCwd();
+    // print("\n", .{});
+    // }
 }
 
 fn outputXML(path: []const u8) !void {

@@ -2,6 +2,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const collect = @import("./collect.zig");
+pub const xml = @import("xml");
 
 // pub fn unzip(alloc: Allocator,file_path: []const u8, _: *std.Io.Writer) !*Resolver {
 //     var file = try std.fs.cwd().openFile(file_path, .{});

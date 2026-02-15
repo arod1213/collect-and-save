@@ -4,9 +4,20 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const xml = b.addModule("xml", .{
+        .root_source_file = b.path("src/xml.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    xml.linkSystemLibrary("xml2", .{});
+    xml.link_libc = true;
+
     const mod = b.addModule("collect_and_save", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
+        .imports = &.{
+            .{ .name = "xml", .module = xml },
+        },
     });
 
     const exe = b.addExecutable(.{
