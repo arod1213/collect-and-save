@@ -11,7 +11,7 @@ const types = @import("./types.zig");
 pub const Doc = types.Doc;
 pub const Node = types.Node;
 
-pub fn noOp(x: Node) Node {
+pub fn noOp(x: Node) !Node {
     return x;
 }
 
@@ -24,7 +24,7 @@ pub fn mainDoc(path: []const u8) !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const samples = try nodesByName(Node, alloc, doc.root.?, "FileRef", noOp);
+    const samples = try nodesByName(Node, alloc, doc.root.?, "SampleRef", noOp);
     std.log.info("found {d} samples", .{samples.len});
 }
 
@@ -34,7 +34,7 @@ pub fn nodesByName(comptime T: type, alloc: Allocator, head: Node, name: []const
     var list = try std.ArrayList(T).initCapacity(alloc, 5);
     defer list.deinit(alloc);
 
-    try nodesByNameAcc(alloc, &list, head, name, transform);
+    try nodesByNameAcc(T, alloc, &list, head, name, transform);
 
     return try list.toOwnedSlice(alloc);
 }
@@ -49,7 +49,7 @@ fn nodesByNameAcc(comptime T: type, alloc: Allocator, list: *std.ArrayList(T), n
         }
 
         if (n.children()) |child| {
-            try nodesByNameAcc(alloc, list, child, name, transform);
+            try nodesByNameAcc(T, alloc, list, child, name, transform);
         }
     }
 }
