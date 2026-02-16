@@ -34,6 +34,7 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8) !void {
 
     for (files) |f| {
         if (!f.shouldCollect()) continue;
+        // if (std.mem.endsWith(u8, f.RelativePath, "aupreset")) continue;
 
         const res = try map.getOrPut(f.RelativePath);
         if (res.found_existing) {

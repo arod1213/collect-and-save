@@ -34,13 +34,20 @@ pub const FileInfo = struct {
             if (std.mem.startsWith(u8, self.RelativePath, dir)) return false;
         }
 
-        return switch (self.RelativePathType) {
-            .AbletonCoreAudio,
-            .AbletonPluginPreset,
-            // .ExternalPluginPreset,
-            .NA,
-            => false,
-            else => true,
-        };
+        const file_types = [_][]const u8{ ".wav", ".mp3", ".aif", ".flac", ".amxd", ".adv" };
+        for (file_types) |ft| {
+            if (std.mem.endsWith(u8, self.RelativePath, ft)) return true;
+        }
+        return false;
+
+        // only collect audio files and m4l files
+        // return switch (self.RelativePathType) {
+        //     // .AbletonCoreAudio,
+        //     // .AbletonPluginPreset,
+        //     // .ExternalPluginPreset,
+        //     .NA,
+        //     => false,
+        //     else => true,
+        // };
     }
 };
