@@ -19,6 +19,36 @@ fn transform(x: Node) !FileInfo {
     return try xml.parseNodeToT(FileInfo, &x, "Value");
 }
 
+// TODO: ensure that new dir is relative to the ableton session
+// TODO: finish this
+fn getSessionDir(filepath: []const u8) !std.fs.Dir {
+    if (std.fs.path.dirname(filepath)) {
+        // get dirname as Dir;
+        // return
+    } else {
+        return std.fs.cwd();
+    }
+}
+
+// TODO: ensure that new dir is relative to the ableton session
+fn resolveFile(alloc: Allocator, filepath: []const u8) !void {
+    const new_dir = "Samples/Collected";
+
+    const session_dir = try getSessionDir(filepath);
+    try session_dir.makePath(new_dir);
+
+    const filename = std.fs.path.basename(filepath);
+    // TODO: the file name used in path join must contain the everything after the as a prefix
+    const new_path = try std.fs.path.join(alloc, &[_][]const u8{ new_dir, filename });
+
+    if (std.fs.path.isAbsolute(filepath)) {
+        std.log.err("not handling absolute paths yet", .{});
+        return;
+    } else {
+        try session_dir.copyFile(filepath, session_dir, new_path, .{});
+    }
+}
+
 pub fn collectAndSave(alloc: Allocator, filepath: []const u8) !void {
     var file = try std.fs.cwd().openFile(filepath, .{});
     defer file.close();
@@ -32,9 +62,9 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8) !void {
     var map = std.StringArrayHashMap(FileInfo).init(alloc);
     defer map.deinit();
 
+    // DEDUP
     for (files) |f| {
         if (!f.shouldCollect()) continue;
-        // if (std.mem.endsWith(u8, f.RelativePath, "aupreset")) continue;
 
         const res = try map.getOrPut(f.RelativePath);
         if (res.found_existing) {
@@ -42,10 +72,13 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8) !void {
         }
         res.value_ptr.* = f;
     }
+
     var count: usize = 0;
     for (map.values()) |f| {
+        // TODO: copy files in here
         print("{f}\n", .{f});
         count += 1;
     }
+
     std.log.info("found {d} files ", .{count});
 }
