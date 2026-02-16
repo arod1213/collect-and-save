@@ -1,0 +1,17 @@
+TODO:
+
+maybe create tmp.xml file and parse via "xml" lib
+or stream gzip uncompressed file into "xml" lib (probably faster)
+
+once xml parsed and deserialized into FileRef type
+deduplicate based on file name
+
+allow for options to only collect certain File types (AbletonPreset, AbletonPlugin, RecordedFile, etc)
+ensure file is not already collected before copying
+
+BONUS: avoid name collisions (maybe copy file structure into the collected folder)
+BONUS: modify existing XML to use resolved file path locations
+
+-- SO UNNECESSARY
+EXTRA BONUS: resolve duplicates or crop files to only used length to reduce disk space
+

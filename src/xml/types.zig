@@ -18,6 +18,17 @@ pub const Doc = struct {
     ptr: *c.xmlDoc,
     root: ?Node,
 
+    pub fn initFromBuffer(buffer: []const u8) !Doc {
+        const doc = c.xmlReadMemory(@ptrCast(buffer), @intCast(buffer.len), null, null, 0);
+        if (doc == null) return error.ParseFailed;
+
+        const root = if (c.xmlDocGetRootElement(doc)) |r| Node.init(r.*) else null;
+        return .{
+            .ptr = doc,
+            .root = root,
+        };
+    }
+
     pub fn init(path: []const u8) !Doc {
         const doc = c.xmlReadFile(@ptrCast(path), null, 0);
         if (doc == null) return error.ParseFailed;
@@ -53,7 +64,7 @@ pub const Node = struct {
 
     pub fn getProperty(self: *const Node, name: [:0]const u8) ![]const u8 {
         // TODO check this
-        const value = c.xmlGetProp(self.ptr, @ptrCast(name.ptr));
+        const value = c.xmlGetProp(@ptrCast(&self.ptr), @ptrCast(name.ptr));
         if (value == null) {
             return error.InvalidField;
         }

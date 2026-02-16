@@ -91,20 +91,24 @@ fn valToT(comptime T: type, val: []const u8) !T {
     return switch (info) {
         .int => try std.fmt.parseInt(T, val, 10),
         .float => try std.fmt.parseFloat(T, val),
-        .@"enum" => blk: {
+        .optional => |opt| if (val.len == 0) return null else try valToT(
+            opt.child,
+            val,
+        ),
+        .@"enum" => {
             const tag_info = @typeInfo(info.@"enum".tag_type);
             switch (tag_info) {
                 .int, .float => {
                     const digit = std.fmt.parseInt(info.@"enum".tag_type, val, 10) catch {
                         // fallback to parse by string name
-                        break :blk try std.meta.stringToEnum(T, val);
+                        return std.meta.stringToEnum(T, val) orelse error.InvalidEnumTag;
                     };
-                    break :blk try std.meta.intToEnum(T, digit);
+                    return try std.meta.intToEnum(T, digit);
                 },
                 else => unreachable, // unsupported for now
             }
             const digit = try std.fmt.parseInt(info.@"enum".tag_type, val, 10);
-            break :blk try std.meta.intToEnum(T, digit);
+            return try std.meta.intToEnum(T, digit);
         },
         .pointer => |x| switch (x.child) {
             u8 => val,
