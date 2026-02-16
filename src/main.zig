@@ -52,7 +52,7 @@ fn collectFiles(file_path: []const u8) !void {
 // TODO: remove setAsCwd() calls as it break multiple lookups
 pub fn main() !void {
     const file = "./danny.xml";
-    try collect_and_save.xml.readDoc(file);
+    try collect_and_save.xml.mainDoc(file);
     // const args = std.os.argv;
     // if (args.len < 2) {
     //     std.log.err("please provide a file", .{});
