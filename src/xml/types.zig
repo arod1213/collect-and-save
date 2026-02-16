@@ -1,0 +1,74 @@
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
+const print = std.debug.print;
+const c = @cImport({
+    @cInclude("libxml/parser.h");
+    @cInclude("libxml/tree.h");
+});
+
+fn cPtrToNull(comptime T: type, x: [*c]T) ?T {
+    if (x == null) {
+        return null;
+    }
+    return x.*;
+}
+
+pub const Doc = struct {
+    ptr: *c.xmlDoc,
+    root: ?Node,
+
+    pub fn init(path: []const u8) !Doc {
+        const doc = c.xmlReadFile(@ptrCast(path), null, 0);
+        if (doc == null) return error.ParseFailed;
+
+        const root = if (c.xmlDocGetRootElement(doc)) |r| Node.init(r.*) else null;
+        return .{
+            .ptr = doc,
+            .root = root,
+        };
+    }
+
+    pub fn deinit(self: *Doc) void {
+        c.xmlFreeDoc(self.ptr);
+    }
+};
+
+pub const Node = struct {
+    ptr: c.xmlNode,
+    name: []const u8,
+    next_node: ?c.xmlNode,
+    child_node: ?c.xmlNode,
+    parent_node: ?c.xmlNode,
+
+    pub fn init(ptr: c.xmlNode) Node {
+        return .{
+            .ptr = ptr,
+            .name = std.mem.span(ptr.name),
+            .child_node = cPtrToNull(c.xmlNode, ptr.children),
+            .parent_node = cPtrToNull(c.xmlNode, ptr.parent),
+            .next_node = cPtrToNull(c.xmlNode, ptr.next),
+        };
+    }
+
+    pub fn getProperty(self: *const Node, name: [:0]const u8) ![]const u8 {
+        // TODO check this
+        const value = c.xmlGetProp(self.ptr, @ptrCast(name.ptr));
+        if (value == null) {
+            return error.InvalidField;
+        }
+        return std.mem.span(value);
+    }
+
+    pub fn parent(self: *const Node) ?Node {
+        return if (self.parent) |n| Node.init(n) else null;
+    }
+
+    pub fn children(self: *const Node) ?Node {
+        return if (self.child_node) |n| Node.init(n) else null;
+    }
+
+    pub fn next(self: *const Node) ?Node {
+        return if (self.next_node) |n| Node.init(n) else null;
+    }
+};

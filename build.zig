@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const xml = b.addModule("xml", .{
-        .root_source_file = b.path("src/xml.zig"),
+        .root_source_file = b.path("src/xml/main.zig"),
         .target = target,
         .optimize = optimize,
     });
