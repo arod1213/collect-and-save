@@ -1,4 +1,6 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const collect = @import("collect.zig");
 
 // TODO: these definitions are wrong
 pub const PathType = enum(u4) {
@@ -27,12 +29,17 @@ pub const FileInfo = struct {
     }
 
     // TODO: make this more robust
-    pub fn shouldCollect(self: *const FileInfo) bool {
+    pub fn shouldCollect(self: *const FileInfo, alloc: Allocator, cwd: std.fs.Dir) bool {
         if (std.fs.path.isAbsolute(self.RelativePath)) return false;
 
         switch (self.RelativePathType) {
             .Recorded => return false,
             else => {},
+        }
+
+        const file_exists = collect.fileInDir(alloc, cwd, std.fs.path.basename(self.RelativePath)) catch false;
+        if (file_exists) {
+            return false;
         }
 
         const builtin_dirs = [_][]const u8{ "Samples/", "Presets/", "Backups/" }; // ./ included for inside the file

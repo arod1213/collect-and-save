@@ -28,9 +28,9 @@ fn getSessionDir(filepath: []const u8) !std.fs.Dir {
     const dirname = std.fs.path.dirname(filepath) orelse ".";
 
     if (std.fs.path.isAbsolute(filepath)) {
-        return std.fs.openDirAbsolute(dirname, .{});
+        return std.fs.openDirAbsolute(dirname, .{ .iterate = true });
     } else {
-        return std.fs.cwd().openDir(dirname, .{});
+        return std.fs.cwd().openDir(dirname, .{ .iterate = true });
     }
 }
 
@@ -96,9 +96,10 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     var map = std.StringArrayHashMap(FileInfo).init(alloc);
     defer map.deinit();
 
+    const session_dir = try getSessionDir(filepath);
     // DEDUP
     for (files) |f| {
-        if (!f.shouldCollect()) continue;
+        if (!f.shouldCollect(alloc, session_dir)) continue;
 
         const res = try map.getOrPut(f.RelativePath);
         if (res.found_existing) {
@@ -107,7 +108,6 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
         res.value_ptr.* = f;
     }
 
-    const session_dir = try getSessionDir(filepath);
     print("Session: {s}{s}{s}\n", .{ red, std.fs.path.basename(filepath), reset });
 
     var count: usize = 0;
@@ -123,6 +123,6 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
         count += 1;
     }
     if (count == 0) {
-        print("No files collected..", .{});
+        print("\tNo files to collect..", .{});
     }
 }
