@@ -24,9 +24,6 @@ fn transform(x: Node) !FileInfo {
     return try xml.parseNodeToT(FileInfo, &x, "Value");
 }
 
-// TODO: ensure that new dir is relative to the ableton session
-// TODO: finish this
-
 fn getSessionDir(filepath: []const u8) !std.fs.Dir {
     const dirname = std.fs.path.dirname(filepath) orelse ".";
 
@@ -37,9 +34,28 @@ fn getSessionDir(filepath: []const u8) !std.fs.Dir {
     }
 }
 
-// TODO: ensure that new dir is relative to the ableton session
+const FileExt = enum { wav, mp3, adv, amxd, mp4, m4a, aif };
+fn collectFolder(filepath: []const u8) ![]const u8 {
+    const ext = std.fs.path.extension(filepath);
+    if (ext.len < 2) return error.InvalidExtension;
+
+    const stem = ext[1..];
+
+    const ext_type = std.meta.stringToEnum(FileExt, stem) orelse return error.UnsupportedExtension;
+    return switch (ext_type) {
+        .wav,
+        .mp3,
+        .mp4,
+        .m4a,
+        .aif,
+        => "Samples/Collected",
+        .adv => "Presets/Audio Effects",
+        .amxd => "Presets/Audio Effects/Max Audio Effect",
+    };
+}
+
 fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) !void {
-    const new_dir = "Samples/Collected";
+    const new_dir = try collectFolder(filepath);
 
     try session_dir.makePath(new_dir);
 
@@ -59,7 +75,15 @@ fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) 
     }
 }
 
-pub fn collectAndSave(alloc: Allocator, filepath: []const u8) !void {
+fn writeFileInfo(f: *const FileInfo, prefix: []const u8, success: bool) void {
+    if (success) {
+        print("\t{s}: {s}{s}{s}\n", .{ prefix, green, std.fs.path.basename(f.Path), reset });
+    } else {
+        print("\t{s}: {s}{s}{s}\n", .{ "missing", red, std.fs.path.basename(f.Path), reset });
+    }
+}
+
+pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !void {
     var file = try std.fs.cwd().openFile(filepath, .{});
     defer file.close();
 
@@ -85,10 +109,20 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8) !void {
 
     const session_dir = try getSessionDir(filepath);
     print("Session: {s}{s}{s}\n", .{ red, std.fs.path.basename(filepath), reset });
+
     var count: usize = 0;
+    const prefix = if (dry_run) "would save" else "saved";
     for (map.values()) |f| {
-        resolveFile(alloc, session_dir, f.Path) catch continue;
-        print("\tsaved: {s}{s}{s}\n", .{ green, std.fs.path.basename(f.Path), reset });
+        if (!dry_run) {
+            resolveFile(alloc, session_dir, f.Path) catch {
+                writeFileInfo(&f, prefix, false);
+                continue;
+            };
+        }
+        writeFileInfo(&f, prefix, true);
         count += 1;
+    }
+    if (count == 0) {
+        print("No files collected..", .{});
     }
 }

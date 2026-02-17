@@ -9,8 +9,12 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    xml.linkSystemLibrary("xml2", .{});
+    xml.linkSystemLibrary("xml2", .{ .needed = true });
     xml.link_libc = true;
+
+    // const sdk = b.sysroot orelse "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
+    // xml.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/include" }) });
+    // xml.addLibraryPath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/lib" }) });
 
     const mod = b.addModule("collect_and_save", .{
         .root_source_file = b.path("src/root.zig"),

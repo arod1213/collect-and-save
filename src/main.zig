@@ -6,7 +6,19 @@ const red = "\x1b[31m";
 const green = "\x1b[32m";
 const reset = "\x1b[0m";
 
-const Mode = enum { save, xml };
+const Mode = enum { save, xml, check };
+
+fn modeInfo(w: *std.Io.Writer) !void {
+    _ = try w.print("invalid mode:\n", .{});
+    const info = @typeInfo(Mode);
+
+    inline for (info.@"enum".fields) |field| {
+        _ = try w.print("\t{s}", .{field.name});
+    }
+    try w.flush();
+
+    return;
+}
 
 // TODO: remove setAsCwd() calls as it break multiple lookups
 pub fn main() !void {
@@ -15,27 +27,34 @@ pub fn main() !void {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const args = std.os.argv;
-    if (args.len < 3) {
-        std.log.err("please provide a file", .{});
-        return;
-    }
-
-    const stdout = std.fs.File.stdout();
+    var stdout = std.fs.File.stdout();
+    defer stdout.close();
     var buffer: [4096]u8 = undefined;
     var writer = stdout.writer(&buffer);
 
+    const args = std.os.argv;
+    switch (args.len) {
+        0 => {
+            std.log.err("no args found", .{});
+            return;
+        },
+        1 => return try modeInfo(&writer.interface),
+        2 => {
+            std.log.err("please provide a file", .{});
+            return;
+        },
+        else => {},
+    }
+
     const mode = std.meta.stringToEnum(Mode, std.mem.span(args[1])) orelse {
-        _ = try writer.interface.print("invalid mode:\n\t save | xml", .{});
-        try writer.interface.flush();
+        try modeInfo(&writer.interface);
         return;
     };
 
     const paths = args[2..];
     for (paths) |path| {
-        defer {
-            _ = arena.reset(.free_all);
-        }
+        defer _ = arena.reset(.free_all);
+
         const filepath = std.mem.span(path);
         switch (mode) {
             .xml => {
@@ -43,7 +62,8 @@ pub fn main() !void {
                 defer file.close();
                 try lib.gzip.writeXml(&file, &writer.interface);
             },
-            .save => try lib.collectAndSave(alloc, filepath),
+            .save => try lib.collectAndSave(alloc, filepath, false),
+            .check => try lib.collectAndSave(alloc, filepath, true),
         }
     }
 }
