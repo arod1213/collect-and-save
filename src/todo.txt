@@ -15,6 +15,7 @@ ask for user input before each file is scanned for unique types of scan
 
 allow for options to only collect certain File types (AbletonPreset, AbletonPlugin, RecordedFile, etc)
   ensure file is not already collected before copying
+  ^^ implemented (but maybe check file size before asserting true)
 
 create c ABI funcs to wrap the api
 

@@ -1,12 +1,31 @@
-//! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 const collect = @import("./collect.zig");
 
-const red = "\x1b[31m";
-const green = "\x1b[32m";
-const reset = "\x1b[0m";
+const Color = enum {
+    red,
+    green,
+    yellow,
+    blue,
+    magenta,
+    cyan,
+    white,
+    reset,
+
+    pub fn code(self: Color) []const u8 {
+        return switch (self) {
+            .red => "\x1b[31m",
+            .green => "\x1b[32m",
+            .yellow => "\x1b[33m",
+            .blue => "\x1b[34m",
+            .magenta => "\x1b[35m",
+            .cyan => "\x1b[36m",
+            .white => "\x1b[37m",
+            .reset => "\x1b[0m",
+        };
+    }
+};
 
 pub const gzip = @import("gzip.zig");
 
@@ -77,9 +96,9 @@ fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) 
 
 fn writeFileInfo(f: *const FileInfo, prefix: []const u8, success: bool) void {
     if (success) {
-        print("\t{s}: {s}{s}{s}\n", .{ prefix, green, std.fs.path.basename(f.Path), reset });
+        print("\t{s}: {s}{s}{s}\n", .{ prefix, Color.green.code(), std.fs.path.basename(f.Path), Color.reset.code() });
     } else {
-        print("\t{s}: {s}{s}{s}\n", .{ "missing", red, std.fs.path.basename(f.Path), reset });
+        print("\t{s}: {s}{s}{s}\n", .{ "missing", Color.red.code(), std.fs.path.basename(f.Path), Color.reset.code() });
     }
 }
 
@@ -108,7 +127,7 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
         res.value_ptr.* = f;
     }
 
-    print("Session: {s}{s}{s}\n", .{ red, std.fs.path.basename(filepath), reset });
+    print("Session: {s}{s}{s}\n", .{ Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
 
     var count: usize = 0;
     const prefix = if (dry_run) "would save" else "saved";
