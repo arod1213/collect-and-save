@@ -1,5 +1,7 @@
 TODO:
 
+! Show "missing" tag on check method
+
 ! Update shouldCollect() method
     probably some edges case to check out
     write tests to simulate

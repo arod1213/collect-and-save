@@ -115,7 +115,8 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     var map = std.StringArrayHashMap(FileInfo).init(alloc);
     defer map.deinit();
 
-    const session_dir = try getSessionDir(filepath);
+    var session_dir = try getSessionDir(filepath);
+    defer session_dir.close();
     // DEDUP
     for (files) |f| {
         if (!f.shouldCollect(alloc, session_dir)) continue;
@@ -142,6 +143,6 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
         count += 1;
     }
     if (count == 0) {
-        print("\tNo files to collect..", .{});
+        print("\tNo files to collect..\n", .{});
     }
 }
