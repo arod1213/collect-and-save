@@ -13,6 +13,20 @@ pub fn main() !void {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const filepath = "./proj 3/Untitled.2.als";
-    try lib.collectAndSave(alloc, filepath);
+    const args = std.os.argv;
+    if (args.len < 2) {
+        std.log.err("please provide a file", .{});
+        return;
+    }
+    const paths = args[1..];
+    for (paths) |path| {
+        defer {
+            _ = arena.reset(.free_all);
+        }
+        try lib.collectAndSave(alloc, std.mem.span(path));
+    }
+    // try cwd.setAsCwd();
+    // print("\n", .{});
+    // const filepath = "./proj 3/Untitled.2.als";
+    // try lib.collectAndSave(alloc, filepath);
 }
