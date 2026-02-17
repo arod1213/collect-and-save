@@ -21,31 +21,36 @@ fn transform(x: Node) !FileInfo {
 
 // TODO: ensure that new dir is relative to the ableton session
 // TODO: finish this
+
 fn getSessionDir(filepath: []const u8) !std.fs.Dir {
-    if (std.fs.path.dirname(filepath)) {
-        // get dirname as Dir;
-        // return
+    const dirname = std.fs.path.dirname(filepath) orelse ".";
+
+    if (std.fs.path.isAbsolute(filepath)) {
+        return std.fs.openDirAbsolute(dirname, .{});
     } else {
-        return std.fs.cwd();
+        return std.fs.cwd().openDir(dirname, .{});
     }
 }
 
 // TODO: ensure that new dir is relative to the ableton session
-fn resolveFile(alloc: Allocator, filepath: []const u8) !void {
+fn resolveFile(alloc: Allocator, session_dir: *const std.fs.Dir, filepath: []const u8) !void {
     const new_dir = "Samples/Collected";
 
-    const session_dir = try getSessionDir(filepath);
     try session_dir.makePath(new_dir);
 
     const filename = std.fs.path.basename(filepath);
-    // TODO: the file name used in path join must contain the everything after the as a prefix
     const new_path = try std.fs.path.join(alloc, &[_][]const u8{ new_dir, filename });
+    defer alloc.free(new_path);
 
     if (std.fs.path.isAbsolute(filepath)) {
-        std.log.err("not handling absolute paths yet", .{});
+        const source_dirname = std.fs.path.dirname(filepath) orelse "/";
+        var source_dir = try std.fs.openDirAbsolute(source_dirname, .{});
+        defer source_dir.close();
+
+        try source_dir.copyFile(filename, session_dir, new_path, .{});
         return;
     } else {
-        try session_dir.copyFile(filepath, session_dir, new_path, .{});
+        try std.fs.cwd().copyFile(filename, session_dir, new_path, .{});
     }
 }
 
@@ -73,12 +78,8 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8) !void {
         res.value_ptr.* = f;
     }
 
-    var count: usize = 0;
+    const session_dir = try getSessionDir(filepath);
     for (map.values()) |f| {
-        // TODO: copy files in here
-        print("{f}\n", .{f});
-        count += 1;
+        resolveFile(alloc, &session_dir, f.Path) catch continue;
     }
-
-    std.log.info("found {d} files ", .{count});
 }
