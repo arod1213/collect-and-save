@@ -73,6 +73,7 @@ fn collectFolder(filepath: []const u8) ![]const u8 {
     };
 }
 
+// <RelativePath Value="../../../ableton/beautiful guitar thing Project/Samples/Recorded/10-Audio 0005 [2024-02-03 124542].aif" />
 fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) !void {
     const new_dir = try collectFolder(filepath);
 
@@ -90,7 +91,7 @@ fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) 
         try source_dir.copyFile(filename, session_dir, new_path, .{});
         return;
     } else {
-        try std.fs.cwd().copyFile(filename, session_dir, new_path, .{});
+        try std.fs.cwd().copyFile(filepath, session_dir, new_path, .{});
     }
 }
 
@@ -100,6 +101,12 @@ fn writeFileInfo(f: *const FileInfo, prefix: []const u8, success: bool) void {
     } else {
         print("\t{s}: {s}{s}{s}\n", .{ "missing", Color.red.code(), std.fs.path.basename(f.Path), Color.reset.code() });
     }
+}
+
+pub fn isBackup(filepath: []const u8) bool {
+    const parent = std.fs.path.dirname(filepath) orelse return false;
+    const parent_stem = std.fs.path.basename(parent);
+    return std.mem.eql(u8, parent_stem, "Backup");
 }
 
 pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !void {
