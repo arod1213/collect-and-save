@@ -29,14 +29,21 @@ pub const FileInfo = struct {
     pub fn shouldCollect(self: *const FileInfo) bool {
         if (std.fs.path.isAbsolute(self.RelativePath)) return false;
 
-        const builtin_dirs = [_][]const u8{ "Samples/", "Presets/", "Backups/" };
+        switch (self.RelativePathType) {
+            .Recorded => return false,
+            else => {},
+        }
+
+        const builtin_dirs = [_][]const u8{ "Samples/", "Presets/", "Backups/" }; // ./ included for inside the file
         for (builtin_dirs) |dir| {
             if (std.mem.startsWith(u8, self.RelativePath, dir)) return false;
         }
 
+        const is_relative = std.mem.startsWith(u8, self.RelativePath, "../");
+
         const file_types = [_][]const u8{ ".wav", ".mp3", ".aif", ".flac", ".amxd" };
         for (file_types) |ft| {
-            if (std.mem.endsWith(u8, self.RelativePath, ft)) return true;
+            if (std.mem.endsWith(u8, self.RelativePath, ft) and is_relative) return true;
         }
         return false;
 

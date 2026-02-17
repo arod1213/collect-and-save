@@ -24,7 +24,7 @@ pub fn unzipXml(alloc: Allocator, file: *std.fs.File) ![]const u8 {
     return try text.toOwnedSlice(alloc);
 }
 
-pub fn writeXml(file: *std.fs.File, w: *std.Io.Writer) ![]const u8 {
+pub fn writeXml(file: *std.fs.File, w: *std.Io.Writer) !void {
     var file_buffer: [4096]u8 = undefined;
     var reader = file.reader(&file_buffer);
 
@@ -38,7 +38,7 @@ pub fn writeXml(file: *std.fs.File, w: *std.Io.Writer) ![]const u8 {
         };
         if (bytes == 0) break;
 
-        try w.write(read_buffer[0..bytes]);
-        try w.flush();
+        _ = try w.write(read_buffer[0..bytes]);
     }
+    try w.flush();
 }
