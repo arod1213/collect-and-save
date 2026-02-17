@@ -34,7 +34,7 @@ pub const FileInfo = struct {
             if (std.mem.startsWith(u8, self.RelativePath, dir)) return false;
         }
 
-        const file_types = [_][]const u8{ ".wav", ".mp3", ".aif", ".flac", ".amxd", ".adv" };
+        const file_types = [_][]const u8{ ".wav", ".mp3", ".aif", ".flac", ".amxd" };
         for (file_types) |ft| {
             if (std.mem.endsWith(u8, self.RelativePath, ft)) return true;
         }

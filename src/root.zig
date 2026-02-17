@@ -3,6 +3,11 @@ const std = @import("std");
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 const collect = @import("./collect.zig");
+
+const red = "\x1b[31m";
+const green = "\x1b[32m";
+const reset = "\x1b[0m";
+
 pub const gzip = @import("gzip.zig");
 
 pub const xml = @import("xml");
@@ -33,7 +38,7 @@ fn getSessionDir(filepath: []const u8) !std.fs.Dir {
 }
 
 // TODO: ensure that new dir is relative to the ableton session
-fn resolveFile(alloc: Allocator, session_dir: *const std.fs.Dir, filepath: []const u8) !void {
+fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) !void {
     const new_dir = "Samples/Collected";
 
     try session_dir.makePath(new_dir);
@@ -79,7 +84,11 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8) !void {
     }
 
     const session_dir = try getSessionDir(filepath);
+    print("Session: {s}{s}{s}\n", .{ red, std.fs.path.basename(filepath), reset });
+    var count: usize = 0;
     for (map.values()) |f| {
-        resolveFile(alloc, &session_dir, f.Path) catch continue;
+        resolveFile(alloc, session_dir, f.Path) catch continue;
+        print("\tsaved: {s}{s}{s}\n", .{ green, std.fs.path.basename(f.Path), reset });
+        count += 1;
     }
 }
