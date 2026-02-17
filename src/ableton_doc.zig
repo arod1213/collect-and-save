@@ -26,6 +26,7 @@ pub const FileInfo = struct {
         try w.print("Rel: {s}\nPath {s}\nRelType {any}\nFileSize {d}\n\n", .{ self.RelativePath, self.Path, self.RelativePathType, self.OriginalFileSize });
     }
 
+    // TODO: make this more robust
     pub fn shouldCollect(self: *const FileInfo) bool {
         if (std.fs.path.isAbsolute(self.RelativePath)) return false;
 
@@ -41,20 +42,10 @@ pub const FileInfo = struct {
 
         const is_relative = std.mem.startsWith(u8, self.RelativePath, "../");
 
-        const file_types = [_][]const u8{ ".wav", ".mp3", ".aif", ".flac", ".amxd" };
+        const file_types = [_][]const u8{ ".wav", ".mp3", ".aif", ".flac", ".amxd", ".m4a", ".ogg", ".mp4" };
         for (file_types) |ft| {
             if (std.mem.endsWith(u8, self.RelativePath, ft) and is_relative) return true;
         }
         return false;
-
-        // only collect audio files and m4l files
-        // return switch (self.RelativePathType) {
-        //     // .AbletonCoreAudio,
-        //     // .AbletonPluginPreset,
-        //     // .ExternalPluginPreset,
-        //     .NA,
-        //     => false,
-        //     else => true,
-        // };
     }
 };
