@@ -1,23 +1,30 @@
 TODO:
 
-check session directory to see if file has already been collected
-(do the above after dedup and before resolving the file aka copy)
+! Update shouldCollect() method
+    probably some edges case to check out
+    write tests to simulate
+
+! Fix FileType enum (file type doesnt mean what i think it does)
+! Choose output directory based on file type and FileType enum (possibly?)
+    maybe still use unique directory to avoid overwrites
+! check session directory to see if file has already been collected
+    (do the above after dedup and before resolving the file aka copy)
 
 ask for user input before each file is scanned for unique types of scan
-also allow global scan type for all files
+  also allow global scan type for all files
 
 allow for options to only collect certain File types (AbletonPreset, AbletonPlugin, RecordedFile, etc)
-ensure file is not already collected before copying
+  ensure file is not already collected before copying
 
 create c ABI funcs to wrap the api
 
 maybe integrate AMS lib to get the most recent session out of each folder
-(above will have to be upgrade to search for only ableton files)
-(also output will have to be written to stdout instead of text search lib)
+  (above will have to be upgrade to search for only ableton files)
+  (also output will have to be written to stdout instead of text search lib)
 
 BONUS: avoid name collisions (maybe copy file structure into the collected folder)
 BONUS: modify existing XML to use resolved file path locations
 
--- SO UNNECESSARY
 EXTRA BONUS: resolve duplicates or crop files to only used length to reduce disk space
+  so unnecessary
 
