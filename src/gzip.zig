@@ -39,10 +39,7 @@ pub fn writeXml(file: *std.fs.File, w: *std.Io.Writer) !void {
         };
         if (bytes == 0) break;
 
-        var copy: [4096]u8 = undefined;
-        @memcpy(copy[0..bytes], read_buffer[0..bytes]);
-        _ = try w.write(copy[0..bytes]);
-        // _ = try w.write(read_buffer[0..bytes]);
+        _ = try w.write(read_buffer[0..bytes]);
     }
     try w.flush();
 }

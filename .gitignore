@@ -8,3 +8,5 @@ proj 2/
 proj 3/
 *.xml
 *.als
+
+installer.sh

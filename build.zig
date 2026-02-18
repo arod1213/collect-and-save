@@ -22,7 +22,9 @@ const std = @import("std");
 // }
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
+    const target = b.standardTargetOptions(.{
+        .default_target = .{ .cpu_arch = .x86_64 },
+    });
     const optimize = b.standardOptimizeOption(.{});
 
     const recent_files = b.addModule("recent_files", .{
@@ -36,18 +38,23 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    xml.linkSystemLibrary("xml2", .{ .needed = true });
+    xml.linkSystemLibrary("xml2", .{
+        .needed = true,
+        .use_pkg_config = .yes,
+        .preferred_link_mode = .dynamic,
+        .weak = false,
+        .search_strategy = .paths_first,
+    });
     xml.link_libc = true;
 
     switch (target.result.os.tag) {
         .linux => {
             xml.addSystemIncludePath(.{ .cwd_relative = "/usr/include/libxml2" });
-            xml.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+            // xml.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
         },
         .macos => {
-            xml.addSystemIncludePath(.{ .cwd_relative = "/usr/local/include/libxml2" });
-            xml.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/include/libxml2" });
-            xml.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+            // xml.addIncludePath(.{ .cwd_relative = "/usr/local/include/libxml2" });
+            // xml.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include/libxml2" });
         },
         else => {},
     }
@@ -62,7 +69,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const exe = b.addExecutable(.{
-        .name = "collect_and_save",
+        .name = "cns", // maybe change this
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
