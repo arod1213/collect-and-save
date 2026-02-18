@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 const collect = @import("./collect.zig");
@@ -57,9 +58,14 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
         tmp_file.close();
         std.fs.cwd().deleteFile(tmp_name) catch {};
     }
+
     var write_buffer: [4096]u8 = undefined;
     var writer = tmp_file.writer(&write_buffer);
-    try gzip.writeChunk(alloc, &file, &writer.interface);
+    // TODO: figure out std.Io.Writer bug in here
+    switch (builtin.target.os.tag) {
+        .macos => try gzip.writeChunk(alloc, &file, &writer.interface),
+        else => try gzip.writeXml(&file, &writer.interface),
+    }
 
     var doc = try xml.Doc.init(tmp_name);
     if (doc.root == null) return error.NoRoot;

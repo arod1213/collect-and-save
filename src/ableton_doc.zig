@@ -34,10 +34,15 @@ pub const FileInfo = struct {
     }
 
     // TODO: make this more robust
-    pub fn shouldCollect(self: *const FileInfo, _: Allocator, _: std.fs.Dir) bool {
+    pub fn shouldCollect(self: *const FileInfo, alloc: Allocator, cwd: std.fs.Dir) bool {
         switch (self.RelativePathType) {
             .External => {},
             else => return false,
+        }
+
+        const file_exists = collect.fileInDir(alloc, cwd, std.fs.path.basename(self.RelativePath)) catch false;
+        if (file_exists) {
+            return false;
         }
 
         const file_types = [_][]const u8{
