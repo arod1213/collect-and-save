@@ -36,14 +36,16 @@ pub const FileInfo = struct {
         }
 
         const file_types = [_][]const u8{
+            // audio types
             ".wav",
-            ".mp3",
             ".aif",
-            ".flac",
-            ".amxd",
+            ".mp3",
             ".m4a",
-            ".ogg",
             ".mp4",
+            ".flac",
+            ".ogg",
+            // preset types
+            ".amxd",
             ".adg",
         };
         for (file_types) |ft| {
