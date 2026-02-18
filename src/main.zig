@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const lib = @import("collect_and_save");
 
@@ -18,6 +19,30 @@ fn modeInfo(w: *std.Io.Writer) !void {
     try w.flush();
 
     return;
+}
+
+fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, mode: *const Mode) !void {
+    if (!lib.checks.validAbleton(filepath)) {
+        _ = try writer.print("skipping non ableton set: {s}\n", .{std.fs.path.basename(filepath)});
+        try writer.flush();
+        return;
+    }
+
+    if (lib.checks.isBackup(filepath)) {
+        _ = try writer.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
+        try writer.flush();
+        return;
+    }
+
+    switch (mode.*) {
+        .xml => {
+            var file = try std.fs.cwd().openFile(filepath, .{});
+            defer file.close();
+            try lib.gzip.writeXml(&file, writer);
+        },
+        .save => try lib.collectAndSave(alloc, filepath, false),
+        .check => try lib.collectAndSave(alloc, filepath, true),
+    }
 }
 
 // TODO: remove setAsCwd() calls as it break multiple lookups
@@ -55,24 +80,6 @@ pub fn main() !void {
     for (paths) |path| {
         defer _ = arena.reset(.free_all);
         const filepath = std.mem.span(path);
-
-        if (lib.isBackup(filepath)) {
-            _ = try writer.interface.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
-            try writer.interface.flush();
-            continue;
-        }
-
-        switch (mode) {
-            .xml => {
-                var file = try std.fs.cwd().openFile(filepath, .{});
-                defer file.close();
-                try lib.gzip.writeXml(&file, &writer.interface);
-            },
-            .save => lib.collectAndSave(alloc, filepath, false) catch |e| {
-                print("error reading: {any}\n", .{e});
-                continue;
-            },
-            .check => try lib.collectAndSave(alloc, filepath, true),
-        }
+        collectSet(alloc, &writer.interface, filepath, &mode) catch continue;
     }
 }

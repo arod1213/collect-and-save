@@ -1,2 +1,3 @@
 zig build --release=small
-sudo cp ./zig-out/bin/collect_and_save /usr/local/bin/cns
+# sudo cp ./zig-out/bin/collect_and_save /usr/local/bin/cns
+sudo cp ./zig-out/bin/collect_and_save /home/arod/.local/bin/cns

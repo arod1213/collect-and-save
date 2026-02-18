@@ -1,8 +1,35 @@
 const std = @import("std");
 
+// const sdk = b.sysroot orelse "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
+// xml.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/include" }) });
+// xml.addLibraryPath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/lib" }) });
+
+// fn install(target: *std.Build.ResolvedTarget) !void {
+// cp for mac
+// install into correct locations based on target tag
+//
+// const location = switch (target.result.os.tag) {
+//     .macos => "/usr/loca/bin/cms",
+//     .linux => "/home/arod/.local/bin/cms",
+//     else => "./shit/cms",
+// };
+// _ = b.addSystemCommand(&[_][]const u8{
+//     "cp",
+//     exe.installed_path orelse unreachable,
+//     location,
+// });
+// b.installArtifact(exe);
+// }
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const recent_files = b.addModule("recent_files", .{
+        .root_source_file = b.path("src/recent_files/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
     const xml = b.addModule("xml", .{
         .root_source_file = b.path("src/xml/main.zig"),
@@ -12,14 +39,24 @@ pub fn build(b: *std.Build) void {
     xml.linkSystemLibrary("xml2", .{ .needed = true });
     xml.link_libc = true;
 
-    // const sdk = b.sysroot orelse "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
-    // xml.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/include" }) });
-    // xml.addLibraryPath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/lib" }) });
+    switch (target.result.os.tag) {
+        .linux => {
+            xml.addSystemIncludePath(.{ .cwd_relative = "/usr/include/libxml2" });
+            xml.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+        },
+        .macos => {
+            xml.addSystemIncludePath(.{ .cwd_relative = "/usr/local/include/libxml2" });
+            xml.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/include/libxml2" });
+            xml.addLibraryPath(.{ .cwd_relative = "usr/lib" });
+        },
+        else => {},
+    }
 
     const mod = b.addModule("collect_and_save", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .imports = &.{
+            .{ .name = "recent_files", .module = recent_files },
             .{ .name = "xml", .module = xml },
         },
     });
@@ -35,8 +72,6 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
-
-    b.installArtifact(exe);
 
     const run_step = b.step("run", "Run the app");
 
