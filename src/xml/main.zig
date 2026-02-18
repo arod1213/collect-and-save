@@ -12,11 +12,10 @@ pub const Doc = types.Doc;
 pub const Node = types.Node;
 pub const XmlParam = types.XmlParam;
 
-pub fn noOp(x: Node) !Node {
-    return x;
-}
-
 pub fn getUniqueNodes(comptime T: type, alloc: Allocator, head: Node, name: []const u8, key: fn (T) []const u8) !std.StringArrayHashMap(T) {
+    // const info = @typeInfo(T);
+    // assert(info == .@"struct");
+
     var map = std.StringArrayHashMap(T).init(alloc);
     try map.ensureTotalCapacity(80);
     try saveUniqueNode(T, alloc, head, name, &map, key);

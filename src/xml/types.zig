@@ -14,7 +14,7 @@ fn cPtrToNull(comptime T: type, x: [*c]T) ?T {
     return x.*;
 }
 
-pub fn XmlParam(comptime T: type, name: []const u8) type {
+pub fn XmlParam(comptime T: type) type {
     return struct {
         value: T,
         name: []const u8,
