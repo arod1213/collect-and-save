@@ -7,7 +7,7 @@ const red = "\x1b[31m";
 const green = "\x1b[32m";
 const reset = "\x1b[0m";
 
-const Mode = enum { save, xml, check };
+const Mode = enum { save, xml, check, info };
 
 fn modeInfo(w: *std.Io.Writer) !void {
     _ = try w.print("invalid mode:\n", .{});
@@ -42,6 +42,7 @@ fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, mo
         },
         .save => try lib.collectAndSave(alloc, filepath, false),
         .check => try lib.collectAndSave(alloc, filepath, true),
+        .info => try lib.collectInfo(alloc, writer, filepath),
     }
 }
 

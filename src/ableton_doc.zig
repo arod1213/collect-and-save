@@ -5,11 +5,11 @@ const collect = @import("collect.zig");
 // TODO: these definitions are wrong
 pub const PathType = enum(u4) {
     NA = 0,
-    ExternalPluginPreset = 1, // this shows for some .wav files
+    External = 1, // this shows for some .wav files
     Recorded = 3,
-    AbletonPluginPreset = 5,
-    AbletonRackPreset = 6,
-    AbletonCoreAudio = 7,
+    AbletonPluginData = 5,
+    Internal = 6,
+    AbletonBuiltin = 7,
 };
 
 pub const FileInfo = struct {
@@ -29,29 +29,15 @@ pub const FileInfo = struct {
     }
 
     // TODO: make this more robust
-    pub fn shouldCollect(self: *const FileInfo, alloc: Allocator, cwd: std.fs.Dir) bool {
-        if (std.fs.path.isAbsolute(self.RelativePath)) return false;
-
+    pub fn shouldCollect(self: *const FileInfo, _: Allocator, _: std.fs.Dir) bool {
         switch (self.RelativePathType) {
-            .Recorded => return false,
-            else => {},
+            .External => {},
+            else => return false,
         }
-
-        const file_exists = collect.fileInDir(alloc, cwd, std.fs.path.basename(self.RelativePath)) catch false;
-        if (file_exists) {
-            return false;
-        }
-
-        const builtin_dirs = [_][]const u8{ "Samples/", "Presets/", "Backups/" }; // ./ included for inside the file
-        for (builtin_dirs) |dir| {
-            if (std.mem.startsWith(u8, self.RelativePath, dir)) return false;
-        }
-
-        const is_relative = std.mem.startsWith(u8, self.RelativePath, "../");
 
         const file_types = [_][]const u8{ ".wav", ".mp3", ".aif", ".flac", ".amxd", ".m4a", ".ogg", ".mp4" };
         for (file_types) |ft| {
-            if (std.mem.endsWith(u8, self.RelativePath, ft) and is_relative) return true;
+            if (std.mem.endsWith(u8, self.RelativePath, ft)) return true;
         }
         return false;
     }

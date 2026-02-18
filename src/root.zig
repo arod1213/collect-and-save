@@ -151,3 +151,30 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
         print("\tNo files to collect..\n", .{});
     }
 }
+
+pub fn collectInfo(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8) !void {
+    var file = try std.fs.cwd().openFile(filepath, .{});
+    defer file.close();
+
+    const xml_buffer = try gzip.unzipXml(alloc, &file);
+    const doc = try xml.Doc.initFromBuffer(xml_buffer);
+    if (doc.root == null) return error.NoRoot;
+
+    const files = try xml.nodesByName(FileInfo, alloc, doc.root.?, "FileRef", transform);
+
+    var map = std.StringArrayHashMap(FileInfo).init(alloc);
+    defer map.deinit();
+
+    // DEDUP
+    for (files) |f| {
+        const res = try map.getOrPut(f.RelativePath);
+        if (res.found_existing) {
+            continue;
+        }
+        res.value_ptr.* = f;
+    }
+
+    for (map.values()) |f| {
+        _ = try writer.print("{f}", .{f});
+    }
+}

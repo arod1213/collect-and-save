@@ -1,7 +1,16 @@
 TODO:
 
-! Show "missing" tag on check method
+Better error messages
 
+CLI Config setup
+    > Config struct {
+        ask_mode: per_session, per_audio, none
+        cmd: Mode,
+        copy_mode: all, recorded, plugins, imported
+      }
+    add interactive mode
+    first run check -> then if accepted collect
+  
 ! nodesByName should have a ref to the map to deduplicate before ending up in the main func
   will cut allocations in half if not more
 
@@ -33,4 +42,3 @@ BONUS: modify existing XML to use resolved file path locations
 
 EXTRA BONUS: resolve duplicates or crop files to only used length to reduce disk space
   so unnecessary
-
