@@ -1,6 +1,7 @@
 TODO:
 
 Better error messages
+!!! Implement streaming or tmp file for gzip to xml
 
 CLI Config setup
     > Config struct {

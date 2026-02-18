@@ -15,41 +15,29 @@ pub fn noOp(x: Node) !Node {
     return x;
 }
 
-pub fn mainDoc(path: []const u8) !void {
-    var doc = try Doc.init(path);
-    defer doc.deinit();
-
-    if (doc.root == null) return error.NoRoot;
-
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-    const samples = try nodesByName(Node, alloc, doc.root.?, "SampleRef", noOp);
-    std.log.info("found {d} samples", .{samples.len});
+pub fn getUniqueNodes(comptime T: type, alloc: Allocator, head: Node, name: []const u8, key: fn (T) []const u8) !std.StringArrayHashMap(T) {
+    var map = std.StringArrayHashMap(T).init(alloc);
+    try map.ensureTotalCapacity(80);
+    try saveUniqueNode(T, alloc, head, name, &map, key);
+    return map;
 }
 
-// transform used to prevent duplicate looping to convert Node to type T
-// errors are ignored - aka Node will not be added if it cannot be parsed
-pub fn nodesByName(comptime T: type, alloc: Allocator, head: Node, name: []const u8, transform: fn (Node) anyerror!T) ![]T {
-    var list = try std.ArrayList(T).initCapacity(alloc, 5);
-    defer list.deinit(alloc);
-
-    try nodesByNameAcc(T, alloc, &list, head, name, transform);
-
-    return try list.toOwnedSlice(alloc);
-}
-
-fn nodesByNameAcc(comptime T: type, alloc: Allocator, list: *std.ArrayList(T), node: Node, name: []const u8, transform: fn (Node) anyerror!T) !void {
+fn saveUniqueNode(comptime T: type, alloc: Allocator, node: Node, name: []const u8, map: *std.StringArrayHashMap(T), key: fn (T) []const u8) !void {
     var current: ?Node = node;
 
     while (current) |n| : (current = n.next()) {
         if (std.mem.eql(u8, n.name, name)) {
-            const x = transform(n) catch continue;
-            try list.append(alloc, x);
+            const value = parseNodeToT(T, &n, "Value") catch continue;
+            const key_val = key(value);
+            const res = try map.getOrPut(key_val);
+            if (res.found_existing) {
+                continue;
+            }
+            res.value_ptr.* = value;
         }
 
         if (n.children()) |child| {
-            try nodesByNameAcc(T, alloc, list, child, name, transform);
+            try saveUniqueNode(T, alloc, child, name, map, key);
         }
     }
 }

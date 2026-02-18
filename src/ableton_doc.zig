@@ -22,6 +22,10 @@ pub const FileInfo = struct {
     LivePackId: []const u8,
     OriginalFileSize: u64,
 
+    pub fn key(self: FileInfo) []const u8 {
+        return self.Path;
+    }
+
     pub fn format(self: FileInfo, w: *std.Io.Writer) !void {
         _ = try w.print("{s}\n", .{std.fs.path.basename(self.Path)});
         _ = try w.print("\t@: {s}\n", .{self.Path});

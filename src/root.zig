@@ -4,78 +4,21 @@ const Allocator = std.mem.Allocator;
 const collect = @import("./collect.zig");
 pub const checks = @import("./checks.zig");
 
-const Color = enum {
-    red,
-    green,
-    yellow,
-    blue,
-    magenta,
-    cyan,
-    white,
-    reset,
-
-    pub fn code(self: Color) []const u8 {
-        return switch (self) {
-            .red => "\x1b[31m",
-            .green => "\x1b[32m",
-            .yellow => "\x1b[33m",
-            .blue => "\x1b[34m",
-            .magenta => "\x1b[35m",
-            .cyan => "\x1b[36m",
-            .white => "\x1b[37m",
-            .reset => "\x1b[0m",
-        };
-    }
-};
-
 pub const gzip = @import("gzip.zig");
 
 pub const xml = @import("xml");
 
 const Node = xml.Node;
 const Doc = xml.Doc;
+const Color = @import("ascii.zig").Color;
 
 const ableton = @import("ableton_doc.zig");
 
 const FileInfo = ableton.FileInfo;
 const PathType = ableton.PathType;
 
-fn transform(x: Node) !FileInfo {
-    return try xml.parseNodeToT(FileInfo, &x, "Value");
-}
-
-fn getSessionDir(filepath: []const u8) !std.fs.Dir {
-    const dirname = std.fs.path.dirname(filepath) orelse ".";
-
-    if (std.fs.path.isAbsolute(filepath)) {
-        return std.fs.openDirAbsolute(dirname, .{ .iterate = true });
-    } else {
-        return std.fs.cwd().openDir(dirname, .{ .iterate = true });
-    }
-}
-
-const FileExt = enum { wav, mp3, adv, amxd, mp4, m4a, aif };
-fn collectFolder(filepath: []const u8) ![]const u8 {
-    const ext = std.fs.path.extension(filepath);
-    if (ext.len < 2) return error.InvalidExtension;
-
-    const stem = ext[1..];
-
-    const ext_type = std.meta.stringToEnum(FileExt, stem) orelse return error.UnsupportedExtension;
-    return switch (ext_type) {
-        .wav,
-        .mp3,
-        .mp4,
-        .m4a,
-        .aif,
-        => "Samples/Collected",
-        .adv => "Presets/Audio Effects",
-        .amxd => "Presets/Audio Effects/Max Audio Effect",
-    };
-}
-
 fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) !void {
-    const new_dir = try collectFolder(filepath);
+    const new_dir = try collect.collectFolder(filepath);
 
     try session_dir.makePath(new_dir);
 
@@ -107,33 +50,34 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     var file = try std.fs.cwd().openFile(filepath, .{});
     defer file.close();
 
-    const xml_buffer = try gzip.unzipXml(alloc, &file);
-    const doc = try xml.Doc.initFromBuffer(xml_buffer);
+    // TODO: look into real tmp directories
+    const tmp_name = "./tmp_ableton_collect_and_save.xml";
+    var tmp_file = try std.fs.cwd().createFile(tmp_name, .{});
+    defer {
+        tmp_file.close();
+        std.fs.cwd().deleteFile(tmp_name) catch {};
+    }
+    var write_buffer: [4096]u8 = undefined;
+    var writer = tmp_file.writer(&write_buffer);
+    try gzip.writeXml(&file, &writer.interface);
+
+    var doc = try xml.Doc.init(tmp_name);
     if (doc.root == null) return error.NoRoot;
+    defer doc.deinit();
 
-    const files = try xml.nodesByName(FileInfo, alloc, doc.root.?, "FileRef", transform);
-
-    var map = std.StringArrayHashMap(FileInfo).init(alloc);
+    var map = try xml.getUniqueNodes(FileInfo, alloc, doc.root.?, "FileRef", FileInfo.key);
     defer map.deinit();
 
-    var session_dir = try getSessionDir(filepath);
+    var session_dir = try collect.getSessionDir(filepath);
     defer session_dir.close();
-    // DEDUP
-    for (files) |f| {
-        if (!f.shouldCollect(alloc, session_dir)) continue;
-
-        const res = try map.getOrPut(f.RelativePath);
-        if (res.found_existing) {
-            continue;
-        }
-        res.value_ptr.* = f;
-    }
 
     print("Session: {s}{s}{s}\n", .{ Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
 
     var count: usize = 0;
     const prefix = if (dry_run) "would save" else "saved";
     for (map.values()) |f| {
+        if (!f.shouldCollect(alloc, session_dir)) continue;
+
         if (!dry_run) {
             resolveFile(alloc, session_dir, f.Path) catch {
                 writeFileInfo(&f, prefix, false);
@@ -152,7 +96,7 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     }
 }
 
-pub fn collectInfo(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8) !void {
+pub fn collectInfo(alloc: Allocator, _: *std.Io.Writer, filepath: []const u8) !void {
     var file = try std.fs.cwd().openFile(filepath, .{});
     defer file.close();
 
@@ -160,21 +104,26 @@ pub fn collectInfo(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u
     const doc = try xml.Doc.initFromBuffer(xml_buffer);
     if (doc.root == null) return error.NoRoot;
 
-    const files = try xml.nodesByName(FileInfo, alloc, doc.root.?, "FileRef", transform);
-
-    var map = std.StringArrayHashMap(FileInfo).init(alloc);
+    var map = try xml.getUniqueNodes(FileInfo, alloc, doc.root.?, "FileRef", FileInfo.key);
     defer map.deinit();
 
-    // DEDUP
-    for (files) |f| {
-        const res = try map.getOrPut(f.RelativePath);
-        if (res.found_existing) {
+    var session_dir = try collect.getSessionDir(filepath);
+    defer session_dir.close();
+
+    print("Session: {s}{s}{s}\n", .{ Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
+
+    var count: usize = 0;
+    for (map.values()) |f| {
+        if (!f.shouldCollect(alloc, session_dir)) continue;
+
+        if (!checks.fileExists(f.Path)) {
+            writeFileInfo(&f, "", false);
             continue;
         }
-        res.value_ptr.* = f;
+        writeFileInfo(&f, "would save", true);
+        count += 1;
     }
-
-    for (map.values()) |f| {
-        _ = try writer.print("{f}", .{f});
+    if (count == 0) {
+        print("\tNo files to collect..\n", .{});
     }
 }

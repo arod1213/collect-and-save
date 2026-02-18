@@ -3,15 +3,10 @@ const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const lib = @import("collect_and_save");
 
-const red = "\x1b[31m";
-const green = "\x1b[32m";
-const reset = "\x1b[0m";
-
-const Mode = enum { save, xml, check, info };
-
-fn modeInfo(w: *std.Io.Writer) !void {
-    _ = try w.print("invalid mode:\n", .{});
-    const info = @typeInfo(Mode);
+const Command = enum { save, xml, check, info };
+fn commandInfo(w: *std.Io.Writer) !void {
+    _ = try w.print("invalid command:\n", .{});
+    const info = @typeInfo(Command);
 
     inline for (info.@"enum".fields) |field| {
         _ = try w.print("\t{s}", .{field.name});
@@ -21,7 +16,7 @@ fn modeInfo(w: *std.Io.Writer) !void {
     return;
 }
 
-fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, mode: *const Mode) !void {
+fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
     if (!lib.checks.validAbleton(filepath)) {
         _ = try writer.print("skipping non ableton set: {s}\n", .{std.fs.path.basename(filepath)});
         try writer.flush();
@@ -34,7 +29,7 @@ fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, mo
         return;
     }
 
-    switch (mode.*) {
+    switch (cmd.*) {
         .xml => {
             var file = try std.fs.cwd().openFile(filepath, .{});
             defer file.close();
@@ -64,7 +59,7 @@ pub fn main() !void {
             std.log.err("no args found", .{});
             return;
         },
-        1 => return try modeInfo(&writer.interface),
+        1 => return try commandInfo(&writer.interface),
         2 => {
             std.log.err("please provide a file", .{});
             return;
@@ -72,8 +67,8 @@ pub fn main() !void {
         else => {},
     }
 
-    const mode = std.meta.stringToEnum(Mode, std.mem.span(args[1])) orelse {
-        try modeInfo(&writer.interface);
+    const cmd = std.meta.stringToEnum(Command, std.mem.span(args[1])) orelse {
+        try commandInfo(&writer.interface);
         return;
     };
 
@@ -81,6 +76,6 @@ pub fn main() !void {
     for (paths) |path| {
         defer _ = arena.reset(.free_all);
         const filepath = std.mem.span(path);
-        collectSet(alloc, &writer.interface, filepath, &mode) catch continue;
+        collectSet(alloc, &writer.interface, filepath, &cmd) catch continue;
     }
 }
