@@ -2,10 +2,9 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const collect = @import("collect.zig");
 
-// TODO: these definitions are wrong
-pub const PathType = enum(u4) {
+pub const PathType = enum(u3) {
     NA = 0,
-    External = 1, // this shows for some .wav files
+    External = 1,
     Recorded = 3,
     AbletonPluginData = 5,
     Internal = 6,
@@ -23,9 +22,11 @@ pub const FileInfo = struct {
     LivePackId: []const u8,
     OriginalFileSize: u64,
 
-    // TODO: when field name is wrong garbage gets put there
     pub fn format(self: FileInfo, w: *std.Io.Writer) !void {
-        try w.print("Rel: {s}\nPath {s}\nRelType {any}\nFileSize {d}\n\n", .{ self.RelativePath, self.Path, self.RelativePathType, self.OriginalFileSize });
+        _ = try w.print("{s}\n", .{std.fs.path.basename(self.Path)});
+        _ = try w.print("\t@: {s}\n", .{self.Path});
+        _ = try w.print("\ttype: {any}\n", .{self.RelativePathType});
+        _ = try w.print("\tsize: {d}\n\n", .{self.OriginalFileSize});
     }
 
     // TODO: make this more robust
