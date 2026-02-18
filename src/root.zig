@@ -52,14 +52,14 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
 
     // TODO: look into real tmp directories
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
-    var tmp_file = try std.fs.cwd().createFile(tmp_name, .{});
+    var tmp_file = try std.fs.cwd().createFile(tmp_name, .{ .truncate = true });
     defer {
         tmp_file.close();
         std.fs.cwd().deleteFile(tmp_name) catch {};
     }
     var write_buffer: [4096]u8 = undefined;
     var writer = tmp_file.writer(&write_buffer);
-    try gzip.writeXml(&file, &writer.interface);
+    try gzip.writeChunk(alloc, &file, &writer.interface);
 
     var doc = try xml.Doc.init(tmp_name);
     if (doc.root == null) return error.NoRoot;
@@ -78,15 +78,14 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     for (map.values()) |f| {
         if (!f.shouldCollect(alloc, session_dir)) continue;
 
-        if (!dry_run) {
+        if (dry_run) {
+            const exists = checks.fileExists(f.Path);
+            writeFileInfo(&f, prefix, exists);
+        } else {
             resolveFile(alloc, session_dir, f.Path) catch {
                 writeFileInfo(&f, prefix, false);
                 continue;
             };
-        } else if (!checks.fileExists(f.Path)) {
-            writeFileInfo(&f, prefix, false);
-            continue;
-        } else {
             writeFileInfo(&f, prefix, true);
         }
         count += 1;

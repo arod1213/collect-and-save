@@ -47,7 +47,7 @@ pub fn build(b: *std.Build) void {
         .macos => {
             xml.addSystemIncludePath(.{ .cwd_relative = "/usr/local/include/libxml2" });
             xml.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/include/libxml2" });
-            xml.addLibraryPath(.{ .cwd_relative = "usr/lib" });
+            xml.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
         },
         else => {},
     }
