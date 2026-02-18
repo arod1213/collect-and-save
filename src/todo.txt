@@ -2,6 +2,9 @@ TODO:
 
 ! Show "missing" tag on check method
 
+! nodesByName should have a ref to the map to deduplicate before ending up in the main func
+  will cut allocations in half if not more
+
 ! Update shouldCollect() method
     probably some edges case to check out
     write tests to simulate

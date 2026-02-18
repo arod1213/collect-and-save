@@ -74,6 +74,20 @@ fn collectFolder(filepath: []const u8) ![]const u8 {
 }
 
 // <RelativePath Value="../../../ableton/beautiful guitar thing Project/Samples/Recorded/10-Audio 0005 [2024-02-03 124542].aif" />
+pub fn fileExists(filepath: []const u8) bool {
+    if (std.fs.path.isAbsolute(filepath)) {
+        const source_dirname = std.fs.path.dirname(filepath) orelse "/";
+        var source_dir = std.fs.openDirAbsolute(source_dirname, .{}) catch return false;
+        defer source_dir.close();
+
+        const filename = std.fs.path.basename(filepath);
+        source_dir.access(filename, .{}) catch return false;
+    } else {
+        std.fs.cwd().access(filepath, .{}) catch return false;
+    }
+    return true;
+}
+
 fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) !void {
     const new_dir = try collectFolder(filepath);
 
@@ -145,8 +159,12 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
                 writeFileInfo(&f, prefix, false);
                 continue;
             };
+        } else if (!fileExists(f.Path)) {
+            writeFileInfo(&f, prefix, false);
+            continue;
+        } else {
+            writeFileInfo(&f, prefix, true);
         }
-        writeFileInfo(&f, prefix, true);
         count += 1;
     }
     if (count == 0) {
