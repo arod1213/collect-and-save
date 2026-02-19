@@ -20,37 +20,77 @@ const FileInfo11 = struct {
     // RelativePath: RelativePath,
 };
 
-pub const FileInfo = struct {
-    RelativePathType: PathType = .NA,
-    RelativePath: []const u8,
-    Path: []const u8,
+fn ValueWrapper(comptime T: type) type {
+    return struct {
+        Value: T,
+    };
+}
+
+const PathElement = struct {
+    Id: usize,
+    Dir: []const u8,
+};
+pub const FileInfo10 = struct {
+    // RelativePathType: PathType = .NA,
+    // RelativePathType: ValueWrapper(PathType),
+    // RelativePath: []const u8,
+    // RelativePath: []PathElement,
+    // Path: []const u8,
+    Name: ValueWrapper([]const u8),
     // Name: ?[]const u8 = null,
 
     // Type: usize,
 
-    LivePackName: []const u8,
-    LivePackId: []const u8,
-    OriginalFileSize: u64,
+    // LivePackName: []const u8,
+    // LivePackId: []const u8,
+    // OriginalFileSize: u64,
+
+    pub fn key(self: FileInfo10) []const u8 {
+        return self.Name.Value;
+    }
+
+    pub fn format(self: FileInfo10, w: *std.Io.Writer) !void {
+        _ = try w.print("{s}\n", .{std.fs.path.basename(self.Name.Value)});
+        _ = try w.print("\t@: {s}\n", .{self.Name.Value});
+        // _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.value});
+        // _ = try w.print("\tsize: {d}\n\n", .{self.OriginalFileSize});
+    }
+};
+
+pub const FileInfo = struct {
+    // RelativePathType: PathType = .NA,
+    RelativePathType: ValueWrapper(PathType),
+    // RelativePath: []const u8,
+    RelativePath: ValueWrapper([]const u8),
+    // Path: []const u8,
+    Path: ValueWrapper([]const u8),
+    // Name: ?[]const u8 = null,
+
+    // Type: usize,
+
+    // LivePackName: []const u8,
+    // LivePackId: []const u8,
+    // OriginalFileSize: u64,
 
     pub fn key(self: FileInfo) []const u8 {
-        return self.Path;
+        return self.Path.Value;
     }
 
     pub fn format(self: FileInfo, w: *std.Io.Writer) !void {
-        _ = try w.print("{s}\n", .{std.fs.path.basename(self.Path)});
-        _ = try w.print("\t@: {s}\n", .{self.Path});
-        _ = try w.print("\ttype: {any}\n", .{self.RelativePathType});
-        _ = try w.print("\tsize: {d}\n\n", .{self.OriginalFileSize});
+        _ = try w.print("{s}\n", .{std.fs.path.basename(self.Path.Value)});
+        _ = try w.print("\t@: {s}\n", .{self.Path.Value});
+        _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.Value});
+        // _ = try w.print("\tsize: {d}\n\n", .{self.OriginalFileSize});
     }
 
     // TODO: make this more robust
     pub fn shouldCollect(self: *const FileInfo, alloc: Allocator, cwd: std.fs.Dir) bool {
-        switch (self.RelativePathType) {
+        switch (self.RelativePathType.Value) {
             .External => {},
             else => return false,
         }
 
-        const file_exists = collect.fileInDir(alloc, cwd, std.fs.path.basename(self.RelativePath)) catch false;
+        const file_exists = collect.fileInDir(alloc, cwd, std.fs.path.basename(self.RelativePath.Value)) catch false;
         if (file_exists) {
             return false;
         }
@@ -69,7 +109,7 @@ pub const FileInfo = struct {
             ".adg",
         };
         for (file_types) |ft| {
-            if (std.mem.endsWith(u8, self.RelativePath, ft)) return true;
+            if (std.mem.endsWith(u8, self.RelativePath.Value, ft)) return true;
         }
         return false;
     }

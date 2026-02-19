@@ -40,10 +40,11 @@ fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) 
 }
 
 fn writeFileInfo(f: *const FileInfo, prefix: []const u8, success: bool) void {
+    const path = std.fs.path.basename(f.Path.Value);
     if (success) {
-        print("\t{s}: {s}{s}{s}\n", .{ prefix, Color.green.code(), std.fs.path.basename(f.Path), Color.reset.code() });
+        print("\t{s}: {s}{s}{s}\n", .{ prefix, Color.green.code(), path, Color.reset.code() });
     } else {
-        print("\t{s}: {s}{s}{s}\n", .{ "missing", Color.red.code(), std.fs.path.basename(f.Path), Color.reset.code() });
+        print("\t{s}: {s}{s}{s}\n", .{ "missing", Color.red.code(), path, Color.reset.code() });
     }
 }
 
@@ -88,10 +89,10 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
         if (!f.shouldCollect(alloc, session_dir)) continue;
 
         if (dry_run) {
-            const exists = checks.fileExists(f.Path);
+            const exists = checks.fileExists(f.Path.Value);
             writeFileInfo(&f, prefix, exists);
         } else {
-            resolveFile(alloc, session_dir, f.Path) catch {
+            resolveFile(alloc, session_dir, f.Path.Value) catch {
                 writeFileInfo(&f, prefix, false);
                 continue;
             };
@@ -112,7 +113,7 @@ pub fn collectInfo(alloc: Allocator, _: *std.Io.Writer, filepath: []const u8) !v
     const doc = try xml.Doc.initFromBuffer(xml_buffer);
     if (doc.root == null) return error.NoRoot;
 
-    var map = try xml.getUniqueNodes(FileInfo, alloc, doc.root.?, "FileRef", FileInfo.key);
+    var map = try xml.getUniqueNodes(ableton.FileInfo10, alloc, doc.root.?, "FileRef", ableton.FileInfo10.key);
     defer map.deinit();
 
     var session_dir = try collect.getSessionDir(filepath);
@@ -120,18 +121,15 @@ pub fn collectInfo(alloc: Allocator, _: *std.Io.Writer, filepath: []const u8) !v
 
     print("Session: {s}{s}{s}\n", .{ Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
 
-    var count: usize = 0;
     for (map.values()) |f| {
-        if (!f.shouldCollect(alloc, session_dir)) continue;
-
-        if (!checks.fileExists(f.Path)) {
-            writeFileInfo(&f, "", false);
-            continue;
-        }
-        writeFileInfo(&f, "would save", true);
-        count += 1;
-    }
-    if (count == 0) {
-        print("\tNo files to collect..\n", .{});
+        print("{f}\n", .{f});
+        // if (!f.shouldCollect(alloc, session_dir)) continue;
+        //
+        // if (!checks.fileExists(f.Path.Value)) {
+        //     writeFileInfo(&f, "", false);
+        //     continue;
+        // }
+        // writeFileInfo(&f, "would save", true);
+        // count += 1;
     }
 }
