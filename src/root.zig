@@ -16,14 +16,9 @@ const ableton = @import("ableton_doc.zig");
 const Ableton11 = ableton.Ableton11;
 const PathType = ableton.PathType;
 
-fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, filepath: []const u8, dry_run: bool) !void {
+fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, session_dir: std.fs.Dir, dry_run: bool) !void {
     var map = try xml.getUniqueNodes(T, alloc, head, "FileRef", T.key);
     defer map.deinit();
-
-    var session_dir = try collect.getSessionDir(filepath);
-    defer session_dir.close();
-
-    print("Session: {s}{s}{s}\n", .{ Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
 
     var count: usize = 0;
     const prefix = if (dry_run) "would save" else "saved";
@@ -45,7 +40,6 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, filepath: []c
     if (count == 0) {
         print("\tNo files to collect..\n", .{});
     }
-    print("found {d} files\n", .{count});
 }
 
 pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !void {
@@ -84,18 +78,23 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
         };
     };
 
+    var session_dir = try collect.getSessionDir(filepath);
+    defer session_dir.close();
+
+    print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
+
     switch (ableton_version) {
         .ten => {
             const K = ableton.Ableton10;
             var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
             defer map.deinit();
-            try processFileRefs(K, alloc, doc.root.?, filepath, dry_run);
+            try processFileRefs(K, alloc, doc.root.?, session_dir, dry_run);
         },
         else => {
             const K = ableton.Ableton11;
             var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
             defer map.deinit();
-            try processFileRefs(K, alloc, doc.root.?, filepath, dry_run);
+            try processFileRefs(K, alloc, doc.root.?, session_dir, dry_run);
         },
     }
 }
