@@ -12,89 +12,136 @@ pub const PathType = enum(u3) {
     AbletonBuiltin = 7,
 };
 
-fn ValueWrapper(comptime T: type) type {
+pub const AbletonVersion = enum(u8) {
+    ten = 10,
+    eleven = 11,
+    twelve = 12,
+};
+
+pub const Header = struct {
+    MajorVersion: u8,
+    MinorVersion: []const u8,
+    SchemaChangeCount: []const u8,
+    Creator: []const u8,
+
+    pub fn version(self: Header) ?AbletonVersion {
+        if (std.mem.indexOf(u8, self.MinorVersion, ".")) |idx| {
+            const text = self.MinorVersion[0..idx];
+            const digit = std.fmt.parseInt(u8, text, 10) catch return null;
+            return std.meta.intToEnum(AbletonVersion, digit) catch return null;
+        }
+        return null;
+    }
+};
+
+fn Value(comptime T: type) type {
     return struct {
         Value: T,
     };
 }
 
-const RelativePathElement = struct {
-    Id: usize,
-    Dir: []const u8,
+pub fn shouldCollect(alloc: Allocator, cwd: std.fs.Dir, path_type: PathType, filepath: []const u8) bool {
+    switch (path_type) {
+        .External => {},
+        else => return false,
+    }
+
+    const file_exists = collect.fileInDir(alloc, cwd, std.fs.path.basename(filepath)) catch false;
+    if (file_exists) {
+        return false;
+    }
+
+    const file_types = [_][]const u8{
+        // audio types
+        ".wav",
+        ".aif",
+        ".mp3",
+        ".m4a",
+        ".mp4",
+        ".flac",
+        ".ogg",
+        // preset types
+        ".amxd",
+        ".adg",
+    };
+    for (file_types) |ft| {
+        if (std.mem.endsWith(u8, filepath, ft)) return true;
+    }
+    return false;
+}
+
+pub const Ableton11 = struct {
+    RelativePathType: Value(PathType) = .{ .Value = .NA },
+    RelativePath: Value([]const u8),
+    Path: Value([]const u8),
+
+    LivePackName: Value([]const u8),
+    LivePackId: Value([]const u8),
+    OriginalFileSize: Value(u64),
+
+    pub fn filepath(self: Ableton11, _: Allocator) []const u8 {
+        return self.Path.Value;
+    }
+
+    pub fn path_type(self: Ableton11) PathType {
+        return self.RelativePathType.Value;
+    }
+
+    pub fn key(self: Ableton11) []const u8 {
+        return self.Path.Value;
+    }
+
+    pub fn format(self: Ableton11, w: *std.Io.Writer) !void {
+        const path = self.filepath();
+        _ = try w.print("{s}\n", .{std.fs.path.basename(path)});
+        _ = try w.print("\t@: {s}\n", .{path});
+        _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.Value});
+    }
 };
 
-pub const FileInfo10 = struct {
-    Name: ValueWrapper([]const u8),
+pub const Ableton10 = struct {
+    Name: Value([]const u8),
     RelativePath: []RelativePathElement,
+    RelativePathType: Value(PathType),
+    LivePackName: Value([]const u8),
+    LivePackId: Value([]const u8),
 
-    pub fn name(self: FileInfo10) []const u8 {
+    pub fn name(self: Ableton10) []const u8 {
         return self.Name.Value;
     }
-    pub fn key(self: FileInfo10) []const u8 {
+
+    pub fn filepath(self: Ableton10, alloc: Allocator) []const u8 {
+        std.mem.sort(RelativePathElement, self.RelativePath, {}, pathElementLessThan);
+        var full_path: []const u8 = "";
+        for (self.RelativePath) |rp| {
+            full_path = std.fs.path.join(alloc, &[_][]const u8{ full_path, rp.Dir }) catch continue;
+        }
+        return std.fs.path.join(alloc, &[_][]const u8{ full_path, self.Name.Value }) catch return full_path;
+    }
+
+    pub fn path_type(self: Ableton10) PathType {
+        return self.RelativePathType.Value;
+    }
+
+    pub fn key(self: Ableton10) []const u8 {
         return self.Name.Value;
     }
 
-    pub fn format(self: FileInfo10, w: *std.Io.Writer) !void {
+    pub fn format(self: Ableton10, w: *std.Io.Writer) !void {
         _ = try w.print("{s}\n", .{std.fs.path.basename(self.name())});
         _ = try w.print("\t@: {s}\n", .{self.name()});
-        _ = try w.print("\telem count {d}\n", .{self.RelativePath.len});
+        _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.Value});
         for (self.RelativePath) |elem| {
             _ = try w.print("\telem: ID: {d} in {s}\n", .{ elem.Id, elem.Dir });
         }
     }
 };
 
-pub const FileInfo = struct {
-    RelativePathType: PathType = .NA,
-    RelativePath: []const u8,
-    Path: []const u8,
-    // Name: ?[]const u8 = null,
+pub fn pathElementLessThan(_: void, self: RelativePathElement, other: RelativePathElement) bool {
+    return self.Id < other.Id;
+}
 
-    // Type: usize,
-
-    LivePackName: []const u8,
-    LivePackId: []const u8,
-    OriginalFileSize: u64,
-
-    pub fn key(self: FileInfo) []const u8 {
-        return self.Path.Value;
-    }
-
-    pub fn format(self: FileInfo, w: *std.Io.Writer) !void {
-        _ = try w.print("{s}\n", .{std.fs.path.basename(self.Path.Value)});
-        _ = try w.print("\t@: {s}\n", .{self.Path.Value});
-        _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.Value});
-        // _ = try w.print("\tsize: {d}\n\n", .{self.OriginalFileSize});
-    }
-
-    // TODO: make this more robust
-    pub fn shouldCollect(self: *const FileInfo, alloc: Allocator, cwd: std.fs.Dir) bool {
-        switch (self.RelativePathType.Value) {
-            .External => {},
-            else => return false,
-        }
-
-        const file_exists = collect.fileInDir(alloc, cwd, std.fs.path.basename(self.RelativePath.Value)) catch false;
-        if (file_exists) {
-            return false;
-        }
-
-        const file_types = [_][]const u8{
-            // audio types
-            ".wav",
-            ".aif",
-            ".mp3",
-            ".m4a",
-            ".mp4",
-            ".flac",
-            ".ogg",
-            // preset types
-            ".amxd",
-            ".adg",
-        };
-        for (file_types) |ft| {
-            if (std.mem.endsWith(u8, self.RelativePath.Value, ft)) return true;
-        }
-        return false;
-    }
+const RelativePathElement = struct {
+    Id: usize,
+    Dir: []const u8,
 };

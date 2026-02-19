@@ -11,7 +11,7 @@ const types = @import("./types.zig");
 pub const Doc = types.Doc;
 pub const Node = types.Node;
 
-const parse = @import("./parse.zig");
+pub const parse = @import("./parse.zig");
 
 pub fn getUniqueNodes(comptime T: type, alloc: Allocator, head: Node, name: []const u8, key: fn (T) []const u8) !std.StringArrayHashMap(T) {
     // const info = @typeInfo(T);

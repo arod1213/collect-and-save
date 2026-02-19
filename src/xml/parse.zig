@@ -49,7 +49,6 @@ pub fn nodeToT(comptime T: type, alloc: Allocator, node: Node) !T {
             .@"struct" => {
                 const child = find.getNode(node, field.name, .child) orelse return error.MissingField;
                 const value = try nodeToT(field.type, alloc, child);
-                std.log.info("SETTING {s} to {any}", .{ field.name, field.type });
                 @field(target, field.name) = value;
             },
             .array => {}, // parse [4] of struct -- no u8 or str allowed as array or pointer
@@ -63,8 +62,6 @@ pub fn nodeToT(comptime T: type, alloc: Allocator, node: Node) !T {
                             const parent = find.getNode(node, field.name, .child) orelse return error.MissingField;
                             const type_name = simpleTypeName(ptr.child);
                             const children = try find.getNodes(alloc, parent, type_name, .child);
-
-                            std.log.info("\t {s} HAS {d} children", .{ parent.name, children.len });
 
                             var list = try std.ArrayList(ptr.child).initCapacity(alloc, 5);
                             errdefer list.deinit(alloc);
