@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 const collect = @import("./collect.zig");
-const Color = @import("ascii.zig").Color;
+pub const Color = @import("ascii.zig").Color;
 
 pub const gzip = @import("gzip.zig");
 pub const checks = @import("./checks.zig");

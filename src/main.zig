@@ -2,15 +2,17 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const lib = @import("collect_and_save");
+const Color = lib.Color;
 
 const Command = enum { save, xml, check, info };
 fn commandInfo(w: *std.Io.Writer) !void {
-    _ = try w.print("invalid command:\n", .{});
+    _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
     const info = @typeInfo(Command);
 
     inline for (info.@"enum".fields) |field| {
         _ = try w.print("\t{s}", .{field.name});
     }
+    _ = try w.write("\n");
     try w.flush();
 
     return;
@@ -18,7 +20,7 @@ fn commandInfo(w: *std.Io.Writer) !void {
 
 fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
     if (!lib.checks.validAbleton(filepath)) {
-        _ = try writer.print("skipping non ableton set: {s}\n", .{std.fs.path.basename(filepath)});
+        _ = try writer.print("{s}{s} is not a valid ableton file{s}\n", .{ Color.red.code(), std.fs.path.basename(filepath), Color.reset.code() });
         try writer.flush();
         return;
     }
@@ -56,12 +58,14 @@ pub fn main() !void {
     const args = std.os.argv;
     switch (args.len) {
         0 => {
-            std.log.err("no args found", .{});
+            _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
+            try writer.interface.flush();
             return;
         },
         1 => return try commandInfo(&writer.interface),
         2 => {
-            std.log.err("please provide a file", .{});
+            _ = try writer.interface.print("{s}please provide a file{s}\n", .{ Color.red.code(), Color.reset.code() });
+            try writer.interface.flush();
             return;
         },
         else => {},
