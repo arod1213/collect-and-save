@@ -73,7 +73,7 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
             return error.UnsupportedVersion;
         };
         break :blk ableton_info.version() orelse {
-            print("Unsupported Ableton Version\n", .{});
+            print("Unsupported Ableton Version: {s}\n", .{ableton_info.MinorVersion});
             return error.UnsupportedVersion;
         };
     };
@@ -84,7 +84,7 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
     print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
 
     switch (ableton_version) {
-        .ten => {
+        .nine, .ten => {
             const K = ableton.Ableton10;
             var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
             defer map.deinit();

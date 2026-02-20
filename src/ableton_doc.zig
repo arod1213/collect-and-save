@@ -13,6 +13,7 @@ pub const PathType = enum(u3) {
 };
 
 pub const AbletonVersion = enum(u8) {
+    nine = 9,
     ten = 10,
     eleven = 11,
     twelve = 12,
@@ -21,8 +22,8 @@ pub const AbletonVersion = enum(u8) {
 pub const Header = struct {
     MajorVersion: u8,
     MinorVersion: []const u8,
-    SchemaChangeCount: []const u8,
     Creator: []const u8,
+    // SchemaChangeCount: []const u8, // not avail in Live 9
 
     pub fn version(self: Header) ?AbletonVersion {
         if (std.mem.indexOf(u8, self.MinorVersion, ".")) |idx| {
@@ -92,7 +93,7 @@ pub const Ableton11 = struct {
     }
 
     pub fn format(self: Ableton11, w: *std.Io.Writer) !void {
-        const path = self.filepath();
+        const path = self.Path.Value;
         _ = try w.print("{s}\n", .{std.fs.path.basename(path)});
         _ = try w.print("\t@: {s}\n", .{path});
         _ = try w.print("\ttype: {any}\n", .{self.RelativePathType.Value});
@@ -142,6 +143,6 @@ pub fn pathElementLessThan(_: void, self: RelativePathElement, other: RelativePa
 }
 
 const RelativePathElement = struct {
-    Id: usize,
+    Id: usize = 0,
     Dir: []const u8,
 };
