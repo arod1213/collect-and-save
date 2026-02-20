@@ -4,7 +4,7 @@ const print = std.debug.print;
 const lib = @import("collect_and_save");
 const Color = lib.Color;
 
-const Command = enum { save, xml, check, info };
+const Command = lib.Command;
 fn commandInfo(w: *std.Io.Writer) !void {
     _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
     const info = @typeInfo(Command);
@@ -37,9 +37,7 @@ fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cm
             defer file.close();
             try lib.gzip.writeXml(&file, writer);
         },
-        .save => try lib.collectAndSave(alloc, filepath, false),
-        .check => try lib.collectAndSave(alloc, filepath, true),
-        .info => try lib.collectInfo(alloc, writer, filepath),
+        .save, .check, .info => try lib.collectAndSave(alloc, filepath, cmd.*),
     }
 }
 

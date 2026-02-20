@@ -13,28 +13,39 @@ const Node = xml.Node;
 const Doc = xml.Doc;
 
 const ableton = @import("ableton_doc.zig");
-const Ableton11 = ableton.Ableton11;
 const PathType = ableton.PathType;
 
-fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, session_dir: std.fs.Dir, dry_run: bool) !void {
+pub const Command = enum { save, xml, check, info };
+
+fn collectFile(comptime T: type, alloc: Allocator, f: T, session_dir: std.fs.Dir, cmd: Command) !void {
+    const sample_path = f.filepath(alloc);
+    switch (cmd) {
+        .check => {
+            if (!ableton.shouldCollect(alloc, session_dir, f.path_type(), sample_path)) return error.FileAlreadyFound;
+            const exists = checks.fileExists(sample_path);
+            writeFileInfo(sample_path, "would save", exists);
+        },
+        .save => {
+            if (!ableton.shouldCollect(alloc, session_dir, f.path_type(), sample_path)) return error.FileAlreadyFound;
+            const prefix = "saved";
+            resolveFile(alloc, session_dir, sample_path) catch |e| {
+                writeFileInfo(sample_path, prefix, false);
+                return e;
+            };
+            writeFileInfo(sample_path, prefix, true);
+        },
+        .info => print("{f}\n", .{f}),
+        else => {},
+    }
+}
+
+fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, session_dir: std.fs.Dir, cmd: Command) !void {
     var map = try xml.getUniqueNodes(T, alloc, head, "FileRef", T.key);
     defer map.deinit();
 
     var count: usize = 0;
-    const prefix = if (dry_run) "would save" else "saved";
     for (map.values()) |f| {
-        const sample_path = f.filepath(alloc);
-        if (!ableton.shouldCollect(alloc, session_dir, f.path_type(), sample_path)) continue;
-        if (dry_run) {
-            const exists = checks.fileExists(sample_path);
-            writeFileInfo(sample_path, prefix, exists);
-        } else {
-            resolveFile(alloc, session_dir, sample_path) catch {
-                writeFileInfo(sample_path, prefix, false);
-                continue;
-            };
-            writeFileInfo(sample_path, prefix, true);
-        }
+        collectFile(T, alloc, f, session_dir, cmd) catch continue;
         count += 1;
     }
     if (count == 0) {
@@ -42,7 +53,7 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, session_dir: 
     }
 }
 
-pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !void {
+pub fn collectAndSave(alloc: Allocator, filepath: []const u8, cmd: Command) !void {
     var file = std.fs.cwd().openFile(filepath, .{}) catch |e| {
         std.log.err("could not find file {s}", .{filepath});
         return e;
@@ -88,46 +99,14 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, dry_run: bool) !vo
             const K = ableton.Ableton10;
             var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
             defer map.deinit();
-            try processFileRefs(K, alloc, doc.root.?, session_dir, dry_run);
+            try processFileRefs(K, alloc, doc.root.?, session_dir, cmd);
         },
-        else => {
+        .eleven, .twelve => {
             const K = ableton.Ableton11;
             var map = try xml.getUniqueNodes(K, alloc, doc.root.?, "FileRef", K.key);
             defer map.deinit();
-            try processFileRefs(K, alloc, doc.root.?, session_dir, dry_run);
+            try processFileRefs(K, alloc, doc.root.?, session_dir, cmd);
         },
-    }
-}
-
-pub fn collectInfo(alloc: Allocator, _: *std.Io.Writer, filepath: []const u8) !void {
-    var file = try std.fs.cwd().openFile(filepath, .{});
-    defer file.close();
-
-    const xml_buffer = try gzip.unzipXml(alloc, &file);
-    const doc = try xml.Doc.initFromBuffer(xml_buffer);
-    if (doc.root == null) return error.NoRoot;
-
-    // _ = blk: {
-    //     const ableton_info = xml.parse.nodeToT(ableton.Header, alloc, doc.root.?) catch {
-    //         print("Unsupported Ableton Version\n", .{});
-    //         return error.UnsupportedVersion;
-    //     };
-    //     break :blk ableton_info.version() orelse {
-    //         print("Unsupported Ableton Version\n", .{});
-    //         return error.UnsupportedVersion;
-    //     };
-    //     };
-
-    var map = try xml.getUniqueNodes(ableton.Ableton10, alloc, doc.root.?, "FileRef", ableton.Ableton10.key);
-    defer map.deinit();
-
-    var session_dir = try collect.getSessionDir(filepath);
-    defer session_dir.close();
-
-    print("Session: {s}{s}{s}\n", .{ Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
-
-    for (map.values()) |f| {
-        print("{f}\n", .{f});
     }
 }
 
