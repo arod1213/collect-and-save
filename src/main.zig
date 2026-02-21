@@ -63,17 +63,32 @@ pub fn main() !void {
     defer stdin.close();
     var in_buffer: [4096]u8 = undefined;
     var reader = stdin.reader(&in_buffer);
-    termios.setup(stdin.handle) catch {
-        std.log.err("failed to setup termios", .{});
-    };
-    defer _ = termios.restore(stdin.handle) catch {};
 
-    const input = zli.parseOrdered(Input, std.os.argv) catch {
-        _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
-        try writer.interface.flush();
-        try commandInfo(&writer.interface);
-        return;
-    };
+    var input: Input = undefined;
+    if (stdin.isTty()) {
+        termios.setup(stdin.handle) catch {
+            std.log.err("failed to setup termios", .{});
+        };
+        defer _ = termios.restore(stdin.handle) catch {};
+
+        input = zli.parseOrdered(Input, std.os.argv) catch {
+            _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
+            try writer.interface.flush();
+            try commandInfo(&writer.interface);
+            return;
+        };
+    } else {
+        const pipe_input = zli.parseOrdered(struct { cmd: Command }, std.os.argv) catch {
+            try commandInfo(&writer.interface);
+            return;
+        };
+        const filepath = reader.interface.takeDelimiter('\n') catch return orelse " ";
+        const trimmed = std.mem.trimRight(u8, filepath, "\r\n");
+        input = .{
+            .filepath = trimmed,
+            .cmd = pipe_input.cmd,
+        };
+    }
 
     const stat = std.fs.cwd().statFile(input.filepath) catch {
         try writer.interface.print("failed to get info from {s}\n", .{input.filepath});
@@ -95,6 +110,10 @@ pub fn main() !void {
                     .file => {},
                     else => continue,
                 }
+                defer {
+                    _ = arena.reset(.free_all);
+                }
+
                 if (!lib.checks.validAbleton(entry.name)) continue;
                 const full_path = try std.fs.path.join(alloc, &[_][]const u8{ input.filepath, entry.name });
                 defer alloc.free(full_path);

@@ -75,6 +75,7 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, config: Colle
 pub fn collectAndSave(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: Command) !void {
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
     _ = try utils.writeGzipToTmp(alloc, tmp_name, filepath);
+    defer std.fs.cwd().deleteFile(tmp_name) catch {};
 
     var doc = try xml.Doc.init(tmp_name);
     if (doc.root == null) return error.NoRoot;
