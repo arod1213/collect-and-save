@@ -28,12 +28,15 @@ fn collectFile(comptime T: type, alloc: Allocator, f: T, config: CollectFileConf
     const sample_path = f.filepath(alloc);
     switch (config.cmd) {
         .check => {
-            if (!ableton.shouldCollect(alloc, config.session_dir, f.pathType(), sample_path)) return error.FileAlreadyFound;
+            const collectable = ableton.shouldCollect(alloc, config.session_dir, f.pathType(), sample_path);
+            if (!collectable) return error.FileAlreadyFound;
             const exists = checks.fileExists(sample_path);
             utils.writeFileInfo(sample_path, "would save", exists);
         },
         .save => {
-            if (!ableton.shouldCollect(alloc, config.session_dir, f.pathType(), sample_path)) return error.FileAlreadyFound;
+            const collectable = ableton.shouldCollect(alloc, config.session_dir, f.pathType(), sample_path);
+            if (!collectable) return error.FileAlreadyFound;
+
             const prefix = "saved";
             utils.resolveFile(alloc, config.session_dir, sample_path) catch |e| {
                 utils.writeFileInfo(sample_path, prefix, false);
@@ -45,7 +48,11 @@ fn collectFile(comptime T: type, alloc: Allocator, f: T, config: CollectFileConf
             try config.writer.print("{f}\n", .{f});
             try config.writer.flush();
         },
-        .safe => try utils.collectFileSafe(T, alloc, config.reader, config.writer, config.session_dir, f),
+        .safe => {
+            const collectable = ableton.shouldCollect(alloc, config.session_dir, f.pathType(), sample_path);
+            if (!collectable) return error.FileAlreadyFound;
+            try utils.collectFileSafe(T, alloc, config.reader, config.writer, config.session_dir, f);
+        },
         .xml => {},
     }
 }

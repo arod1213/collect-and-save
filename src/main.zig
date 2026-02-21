@@ -75,9 +75,35 @@ pub fn main() !void {
         return;
     };
 
-    collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {};
-    // const paths = args[2..];
-    // for (paths) |path| {
-    // defer _ = arena.reset(.free_all);
-    // }
+    const stat = std.fs.cwd().statFile(input.filepath) catch {
+        try writer.interface.print("failed to get info from {s}\n", .{input.filepath});
+        try writer.interface.flush();
+        return;
+    };
+    switch (stat.kind) {
+        .file => collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {},
+        .directory => {
+            var dir = if (std.fs.path.isAbsolute(input.filepath))
+                try std.fs.openDirAbsolute(input.filepath, .{ .iterate = true })
+            else
+                try std.fs.cwd().openDir(input.filepath, .{ .iterate = true });
+            defer dir.close();
+
+            var iter = dir.iterate();
+            while (try iter.next()) |entry| {
+                switch (entry.kind) {
+                    .file => {},
+                    else => continue,
+                }
+                if (!lib.checks.validAbleton(entry.name)) continue;
+                const full_path = try std.fs.path.join(alloc, &[_][]const u8{ input.filepath, entry.name });
+                defer alloc.free(full_path);
+                collectSet(alloc, &reader.interface, &writer.interface, full_path, &input.cmd) catch continue;
+            }
+        },
+        else => {
+            _ = try writer.interface.print("{s}unsupported file type{s}\n", .{ Color.red.code(), Color.reset.code() });
+            try writer.interface.flush();
+        },
+    }
 }
