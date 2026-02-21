@@ -84,7 +84,7 @@ pub const Ableton11 = struct {
         return self.Path.Value;
     }
 
-    pub fn path_type(self: Ableton11) PathType {
+    pub fn pathType(self: Ableton11) PathType {
         return self.RelativePathType.Value;
     }
 
@@ -120,7 +120,7 @@ pub const Ableton10 = struct {
         return std.fs.path.join(alloc, &[_][]const u8{ full_path, self.Name.Value }) catch return full_path;
     }
 
-    pub fn path_type(self: Ableton10) PathType {
+    pub fn pathType(self: Ableton10) PathType {
         return self.RelativePathType.Value;
     }
 

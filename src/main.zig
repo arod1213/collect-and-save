@@ -18,7 +18,7 @@ fn commandInfo(w: *std.Io.Writer) !void {
     return;
 }
 
-fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
+fn collectSet(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
     if (!lib.checks.validAbleton(filepath)) {
         _ = try writer.print("{s}{s} is not a valid ableton file{s}\n", .{ Color.red.code(), std.fs.path.basename(filepath), Color.reset.code() });
         try writer.flush();
@@ -37,11 +37,21 @@ fn collectSet(alloc: Allocator, writer: *std.Io.Writer, filepath: []const u8, cm
             defer file.close();
             try lib.gzip.writeXml(&file, writer);
         },
-        .save, .check, .info => try lib.collectAndSave(alloc, filepath, cmd.*),
+        .save, .check, .info => lib.collectAndSave(alloc, filepath, cmd.*) catch |e| {
+            std.log.err("FUCKED {any}", .{e});
+            return e;
+        },
+        .safe => try lib.cli.collectSafe(alloc, reader, writer, filepath),
     }
 }
 
-// TODO: remove setAsCwd() calls as it break multiple lookups
+fn setupTermios(handle: std.posix.fd_t) !void {
+    var settings = try std.posix.tcgetattr(handle);
+    settings.lflag.ICANON = false;
+    settings.lflag.ECHO = false;
+    _ = try std.posix.tcsetattr(handle, std.posix.TCSA.NOW, settings);
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{ .verbose_log = false }){};
     var arena = std.heap.ArenaAllocator.init(gpa.allocator());
@@ -50,8 +60,16 @@ pub fn main() !void {
 
     var stdout = std.fs.File.stdout();
     defer stdout.close();
-    var buffer: [4096]u8 = undefined;
-    var writer = stdout.writer(&buffer);
+    var out_buffer: [4096]u8 = undefined;
+    var writer = stdout.writer(&out_buffer);
+
+    var stdin = std.fs.File.stdin();
+    defer stdin.close();
+    var in_buffer: [4096]u8 = undefined;
+    var reader = stdin.reader(&in_buffer);
+    setupTermios(stdin.handle) catch {
+        std.log.err("failed to setup termios", .{});
+    };
 
     const args = std.os.argv;
     switch (args.len) {
@@ -78,6 +96,6 @@ pub fn main() !void {
     for (paths) |path| {
         defer _ = arena.reset(.free_all);
         const filepath = std.mem.span(path);
-        collectSet(alloc, &writer.interface, filepath, &cmd) catch continue;
+        collectSet(alloc, &reader.interface, &writer.interface, filepath, &cmd) catch continue;
     }
 }

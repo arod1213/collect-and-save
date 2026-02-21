@@ -8,31 +8,32 @@ pub const Color = @import("ascii.zig").Color;
 pub const gzip = @import("gzip.zig");
 pub const checks = @import("./checks.zig");
 pub const xml = @import("xml");
+pub const cli = @import("cli.zig");
 
 const Node = xml.Node;
 const Doc = xml.Doc;
 
-const ableton = @import("ableton_doc.zig");
+const ableton = @import("ableton.zig");
 const PathType = ableton.PathType;
 
-pub const Command = enum { save, xml, check, info };
+pub const Command = enum { save, xml, check, info, safe };
 
 fn collectFile(comptime T: type, alloc: Allocator, f: T, session_dir: std.fs.Dir, cmd: Command) !void {
     const sample_path = f.filepath(alloc);
     switch (cmd) {
         .check => {
-            if (!ableton.shouldCollect(alloc, session_dir, f.path_type(), sample_path)) return error.FileAlreadyFound;
+            if (!ableton.shouldCollect(alloc, session_dir, f.pathType(), sample_path)) return error.FileAlreadyFound;
             const exists = checks.fileExists(sample_path);
-            writeFileInfo(sample_path, "would save", exists);
+            cli.writeFileInfo(sample_path, "would save", exists);
         },
         .save => {
-            if (!ableton.shouldCollect(alloc, session_dir, f.path_type(), sample_path)) return error.FileAlreadyFound;
+            if (!ableton.shouldCollect(alloc, session_dir, f.pathType(), sample_path)) return error.FileAlreadyFound;
             const prefix = "saved";
-            resolveFile(alloc, session_dir, sample_path) catch |e| {
-                writeFileInfo(sample_path, prefix, false);
+            cli.resolveFile(alloc, session_dir, sample_path) catch |e| {
+                cli.writeFileInfo(sample_path, prefix, false);
                 return e;
             };
-            writeFileInfo(sample_path, prefix, true);
+            cli.writeFileInfo(sample_path, prefix, true);
         },
         .info => print("{f}\n", .{f}),
         else => {},
@@ -54,44 +55,17 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, session_dir: 
 }
 
 pub fn collectAndSave(alloc: Allocator, filepath: []const u8, cmd: Command) !void {
-    var file = std.fs.cwd().openFile(filepath, .{}) catch |e| {
-        std.log.err("could not find file {s}", .{filepath});
-        return e;
-    };
-    defer file.close();
-
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
-    var tmp_file = try std.fs.cwd().createFile(tmp_name, .{ .truncate = true });
-    defer {
-        tmp_file.close();
-        std.fs.cwd().deleteFile(tmp_name) catch {};
-    }
-
-    var write_buffer: [4096]u8 = undefined;
-    var writer = tmp_file.writer(&write_buffer);
-    switch (builtin.target.os.tag) {
-        .macos => try gzip.writeChunk(alloc, &file, &writer.interface),
-        else => try gzip.writeXml(&file, &writer.interface),
-    }
+    _ = try cli.writeGzipToTmp(alloc, tmp_name, filepath);
 
     var doc = try xml.Doc.init(tmp_name);
     if (doc.root == null) return error.NoRoot;
     defer doc.deinit();
 
-    const ableton_version = blk: {
-        const ableton_info = xml.parse.nodeToT(ableton.Header, alloc, doc.root.?) catch {
-            print("Unsupported Ableton Version\n", .{});
-            return error.UnsupportedVersion;
-        };
-        break :blk ableton_info.version() orelse {
-            print("Unsupported Ableton Version: {s}\n", .{ableton_info.MinorVersion});
-            return error.UnsupportedVersion;
-        };
-    };
-
     var session_dir = try collect.getSessionDir(filepath);
     defer session_dir.close();
 
+    const ableton_version = try cli.getAbletonVersion(alloc, &doc);
     print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
 
     switch (ableton_version) {
@@ -107,35 +81,5 @@ pub fn collectAndSave(alloc: Allocator, filepath: []const u8, cmd: Command) !voi
             defer map.deinit();
             try processFileRefs(K, alloc, doc.root.?, session_dir, cmd);
         },
-    }
-}
-
-fn resolveFile(alloc: Allocator, session_dir: std.fs.Dir, filepath: []const u8) !void {
-    const new_dir = try collect.collectFolder(filepath);
-
-    try session_dir.makePath(new_dir);
-
-    const filename = std.fs.path.basename(filepath);
-    const new_path = try std.fs.path.join(alloc, &[_][]const u8{ new_dir, filename });
-    defer alloc.free(new_path);
-
-    if (std.fs.path.isAbsolute(filepath)) {
-        const source_dirname = std.fs.path.dirname(filepath) orelse "/";
-        var source_dir = try std.fs.openDirAbsolute(source_dirname, .{});
-        defer source_dir.close();
-
-        try source_dir.copyFile(filename, session_dir, new_path, .{});
-        return;
-    } else {
-        try std.fs.cwd().copyFile(filepath, session_dir, new_path, .{});
-    }
-}
-
-fn writeFileInfo(filepath: []const u8, prefix: []const u8, success: bool) void {
-    const path = std.fs.path.basename(filepath);
-    if (success) {
-        print("\t{s}: {s}{s}{s}\n", .{ prefix, Color.green.code(), path, Color.reset.code() });
-    } else {
-        print("\t{s}: {s}{s}{s}\n", .{ "missing", Color.red.code(), path, Color.reset.code() });
     }
 }
