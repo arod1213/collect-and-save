@@ -33,8 +33,8 @@
     // internet connectivity.
     .dependencies = .{
         .zli = .{
-            .url = "git+https://github.com/arod1213/zli.git#f03349d6f7704aef945ad148011a9d261a389dda",
-            .hash = "zli-0.0.0-jFqMJrZEAAA1dmO7J44NHCbQtesJZHB2p_UPhtfCi2Ux",
+            .url = "git+https://github.com/arod1213/zli.git#702d83b7dc628e8ed5d813829fa50d6ee32c685c",
+            .hash = "zli-0.0.0-jFqMJqlFAABOZChpib3idU52oaB-Lbh--L94D32Z2S7V",
         },
     },
     .paths = .{
