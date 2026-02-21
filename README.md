@@ -1,6 +1,7 @@
 # CollectAndSave CLI Tool
 
 The `CollectAndSave` utility allows you to work with Ableton session files (`.als`) to inspect, check, and collect files used in your sessions.  
+Supports Live 9 - Live 12 sets
 
 ---
 
