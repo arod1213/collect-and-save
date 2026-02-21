@@ -82,8 +82,16 @@ pub fn main() !void {
             try commandInfo(&writer.interface);
             return;
         };
+
         const filepath = reader.interface.takeDelimiter('\n') catch return orelse " ";
         const trimmed = std.mem.trimRight(u8, filepath, "\r\n");
+
+        if (pipe_input.cmd == .safe) {
+            try writer.interface.print("{s}safe mode is not allowed when piping input in{s}\n", .{ Color.red.code(), Color.reset.code() });
+            try writer.interface.flush();
+            return;
+        }
+
         input = .{
             .filepath = trimmed,
             .cmd = pipe_input.cmd,
