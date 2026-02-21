@@ -68,6 +68,12 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    const zli_dep = b.dependency("zli", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const zli = zli_dep.module("zli");
+
     const exe = b.addExecutable(.{
         .name = "cns", // maybe change this
         .root_module = b.createModule(.{
@@ -75,6 +81,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .imports = &.{
+                .{ .name = "zli", .module = zli },
                 .{ .name = "collect_and_save", .module = mod },
             },
         }),

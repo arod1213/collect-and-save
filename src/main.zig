@@ -2,6 +2,8 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const lib = @import("collect_and_save");
+const zli = @import("zli");
+const termios = @import("termios.zig");
 const Color = lib.Color;
 
 const Command = lib.Command;
@@ -41,12 +43,10 @@ fn collectSet(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, 
     }
 }
 
-fn setupTermios(handle: std.posix.fd_t) !void {
-    var settings = try std.posix.tcgetattr(handle);
-    settings.lflag.ICANON = false;
-    settings.lflag.ECHO = false;
-    _ = try std.posix.tcsetattr(handle, std.posix.TCSA.NOW, settings);
-}
+const Input = struct {
+    cmd: Command,
+    filepath: []const u8,
+};
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{ .verbose_log = false }){};
@@ -63,35 +63,20 @@ pub fn main() !void {
     defer stdin.close();
     var in_buffer: [4096]u8 = undefined;
     var reader = stdin.reader(&in_buffer);
-    setupTermios(stdin.handle) catch {
+    termios.setup(stdin.handle) catch {
         std.log.err("failed to setup termios", .{});
     };
 
-    const args = std.os.argv;
-    switch (args.len) {
-        0 => {
-            _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
-            try writer.interface.flush();
-            return;
-        },
-        1 => return try commandInfo(&writer.interface),
-        2 => {
-            _ = try writer.interface.print("{s}please provide a file{s}\n", .{ Color.red.code(), Color.reset.code() });
-            try writer.interface.flush();
-            return;
-        },
-        else => {},
-    }
-
-    const cmd = std.meta.stringToEnum(Command, std.mem.span(args[1])) orelse {
+    const input = zli.parseOrdered(Input, std.os.argv) catch {
+        _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
+        try writer.interface.flush();
         try commandInfo(&writer.interface);
         return;
     };
 
-    const paths = args[2..];
-    for (paths) |path| {
-        defer _ = arena.reset(.free_all);
-        const filepath = std.mem.span(path);
-        collectSet(alloc, &reader.interface, &writer.interface, filepath, &cmd) catch continue;
-    }
+    // const paths = args[2..];
+    // for (paths) |path| {
+    // defer _ = arena.reset(.free_all);
+    collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {};
+    // }
 }
