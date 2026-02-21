@@ -13,7 +13,7 @@ pub const xml = @import("xml");
 const Node = xml.Node;
 const Doc = xml.Doc;
 
-const ableton = @import("ableton_doc.zig");
+const ableton = @import("ableton.zig");
 const PathType = ableton.PathType;
 
 pub const Command = enum {

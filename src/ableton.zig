@@ -4,7 +4,13 @@ const collect = @import("collect.zig");
 const xml = @import("xml");
 const Dir = std.Io.Dir;
 
-pub const PathType = enum(u3) {
+pub const FileRef = extern struct {
+    filepath: [*c]const u8,
+    path_type: PathType,
+};
+
+// use u3?
+pub const PathType = enum(u8) {
     NA = 0,
     External = 1,
     Recorded = 3,
@@ -48,8 +54,12 @@ pub fn shouldCollect(io: std.Io, alloc: Allocator, cwd: std.Io.Dir, path_type: P
         else => return false,
     }
 
-    const file_exists = collect.fileInDir(io, alloc, cwd, Dir.path.basename(filepath)) catch false;
+    const file_exists = collect.fileInDir(io, alloc, cwd, Dir.path.basename(filepath)) catch |e| {
+        std.log.err("failed to find file in dir: {any}", .{e});
+        return false;
+    };
     if (file_exists) {
+        std.log.info("{s} already in session dir", .{filepath});
         return false;
     }
 
@@ -81,6 +91,14 @@ pub const Ableton11 = struct {
     LivePackId: Value([]const u8),
     OriginalFileSize: Value(u64),
 
+
+    pub fn intoFileRef(self: Ableton11, _: Allocator) FileRef {
+        return .{
+            .filepath = self.Path.Value.ptr,
+            .path_type = self.RelativePathType.Value,
+        };
+    }
+
     pub fn filepath(self: Ableton11, _: Allocator) []const u8 {
         return self.Path.Value;
     }
@@ -107,6 +125,13 @@ pub const Ableton10 = struct {
     RelativePathType: Value(PathType),
     LivePackName: Value([]const u8),
     LivePackId: Value([]const u8),
+
+    pub fn intoFileRef(self: Ableton10, alloc: Allocator) FileRef {
+        return .{
+            .filepath = self.filepath(alloc).ptr,
+            .path_type = self.RelativePathType.Value,
+        };
+    }
 
     pub fn name(self: Ableton10) []const u8 {
         return self.Name.Value;

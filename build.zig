@@ -57,6 +57,26 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
+    // LIBRARY SETUP
+    const mod_c = b.createModule(.{
+        .link_libc = true,
+        .root_source_file = b.path("src/root_c.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "xml", .module = xml },
+        },
+    });
+    const lib = b.addLibrary(.{
+        .name = "collectable",
+        .root_module = mod_c,
+    });
+    // _ = lib.getEmittedH();
+    lib.is_linking_libc = true;
+    const lib_step = b.step("lib", "build c lib");
+    const lib_cmd = b.addInstallArtifact(lib, .{});
+    lib_step.dependOn(&lib_cmd.step);
+
     const run_step = b.step("run", "Run the app");
 
     const run_cmd = b.addRunArtifact(exe);

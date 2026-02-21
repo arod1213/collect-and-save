@@ -7,7 +7,7 @@ pub fn fileInDir(io: std.Io, alloc: Allocator, dir: std.Io.Dir, filename: []cons
     var iter = try dir.walk(alloc);
     defer iter.deinit();
     while (try iter.next(io)) |entry| {
-        if (std.mem.eql(u8, @ptrCast(entry.basename), filename)) {
+        if (std.mem.eql(u8, entry.basename, filename)) {
             return true;
         }
     }
