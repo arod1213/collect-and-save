@@ -11,3 +11,10 @@ pub fn setup(handle: std.posix.fd_t) !void {
     settings.lflag.ECHO = false;
     _ = try std.posix.tcsetattr(handle, std.posix.TCSA.NOW, settings);
 }
+
+pub fn restore(handle: std.posix.fd_t) !void {
+    var settings = try std.posix.tcgetattr(handle);
+    settings.lflag.ICANON = true;
+    settings.lflag.ECHO = true;
+    _ = try std.posix.tcsetattr(handle, std.posix.TCSA.NOW, settings);
+}

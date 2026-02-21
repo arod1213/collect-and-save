@@ -66,6 +66,7 @@ pub fn main() !void {
     termios.setup(stdin.handle) catch {
         std.log.err("failed to setup termios", .{});
     };
+    defer _ = termios.restore(stdin.handle) catch {};
 
     const input = zli.parseOrdered(Input, std.os.argv) catch {
         _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
@@ -74,9 +75,9 @@ pub fn main() !void {
         return;
     };
 
+    collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {};
     // const paths = args[2..];
     // for (paths) |path| {
     // defer _ = arena.reset(.free_all);
-    collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {};
     // }
 }
