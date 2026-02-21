@@ -29,7 +29,7 @@ pub fn collectFileSafe(comptime T: type, alloc: Allocator, reader: *std.Io.Reade
     if (!ableton.shouldCollect(alloc, session_dir, f.pathType(), sample_path)) return error.Uncollectable;
     if (sample_path.len == 0) return error.InvalidFileName; // skip invalid entries
 
-    try writer.print("would you like to save {s}{s}{s}\n", .{ Color.blue.code(), sample_path, Color.reset.code() });
+    try writer.print("would you like to save {s}{s}{s}: [y\n]\n", .{ Color.blue.code(), sample_path, Color.reset.code() });
     try writer.flush();
     const byte = try reader.takeByte();
     if (byte == 'y') {
