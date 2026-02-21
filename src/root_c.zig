@@ -24,7 +24,7 @@ fn openDoc(alloc: Allocator, io: std.Io, filepath: []const u8) !xml.Doc {
 
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
     var tmp_file = cwd.createFile(io, tmp_name, .{ .truncate = true }) catch |e| {
-        std.log.err("failed to create tmp file {any}", .{e}); 
+        std.log.err("failed to create tmp file {any}", .{e});
         return e;
     };
     defer {
@@ -42,9 +42,8 @@ fn openDoc(alloc: Allocator, io: std.Io, filepath: []const u8) !xml.Doc {
     return try xml.Doc.init(tmp_name);
 }
 
-
 // return [] of FileRef
-fn processFileRefs(comptime T: type, io: std.Io, alloc: Allocator, head: Node, session_dir: Dir ) ![]FileRef {
+fn processFileRefs(comptime T: type, io: std.Io, alloc: Allocator, head: Node, session_dir: Dir) ![]FileRef {
     var map = try xml.getUniqueNodes(T, alloc, head, "FileRef", T.key);
     defer map.deinit();
 
@@ -61,7 +60,6 @@ fn processFileRefs(comptime T: type, io: std.Io, alloc: Allocator, head: Node, s
     }
     return try list.toOwnedSlice(alloc);
 }
-
 
 fn resolveFileHelper(io: std.Io, alloc: Allocator, session_dir: Dir, filepath: []const u8) !void {
     const new_dir = try collect.collectFolder(filepath);
@@ -104,11 +102,10 @@ export fn resolveFile(session_path: [*c]const u8, filepath: [*c]const u8) bool {
 
     _ = resolveFileHelper(io, alloc, session_dir, std.mem.span(filepath)) catch return false;
     return true;
-
 }
 
-pub const Files = extern struct { 
-    files: [*c]FileRef, 
+pub const Files = extern struct {
+    files: [*c]FileRef,
     len: usize,
     pub fn fallback() Files {
         return .{
@@ -123,11 +120,11 @@ export fn getExternalFiles(session_path: [*c]const u8, version: ableton.AbletonV
         return Files.fallback();
     }
 
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    // avoid arena as data must cross the boundary
+    const alloc = std.heap.page_allocator;
 
     var threaded = std.Io.Threaded.init(alloc, .{});
+    defer threaded.deinit();
     const io = threaded.io();
 
     var doc = openDoc(alloc, io, std.mem.span(session_path)) catch return Files.fallback();
@@ -146,14 +143,21 @@ export fn getExternalFiles(session_path: [*c]const u8, version: ableton.AbletonV
     switch (version) {
         .nine, .ten => {
             const K = ableton.Ableton10;
-            const ref = processFileRefs(K, io, alloc, doc.root.?, session_dir) catch return Files.fallback();
-            return .{.files= ref.ptr, .len= ref.len};
+            const ref: []FileRef = processFileRefs(K, io, alloc, doc.root.?, session_dir) catch return Files.fallback();
+            return .{ .files = ref.ptr, .len = ref.len };
         },
         .eleven, .twelve => {
             const K = ableton.Ableton11;
-            const ref =  processFileRefs(K, io, alloc, doc.root.?, session_dir) catch return Files.fallback();
-            return .{.files= ref.ptr, .len = ref.len};
+            const ref: []FileRef = processFileRefs(K, io, alloc, doc.root.?, session_dir) catch return Files.fallback();
+            return .{ .files = ref.ptr, .len = ref.len };
         },
+    }
+}
+
+export fn freeFiles(files: Files) void {
+    if (files.files != null) {
+        const ptr: []FileRef = files.files[0..files.len];
+        std.heap.page_allocator.free(ptr);
     }
 }
 
