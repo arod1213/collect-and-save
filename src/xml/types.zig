@@ -20,7 +20,7 @@ pub const Doc = struct {
     root: ?Node,
 
     pub fn initFromBuffer(buffer: []const u8) !Doc {
-        const doc = c.xmlReadMemory(@ptrCast(buffer), @intCast(buffer.len), null, null, 0);
+        const doc = c.xmlReadMemory(@ptrCast(buffer), @intCast(buffer.len), null, null, c.XML_PARSE_HUGE);
         if (doc == null) return error.ParseFailed;
 
         const root = if (c.xmlDocGetRootElement(doc)) |r| Node.init(r.*) else null;
@@ -31,7 +31,7 @@ pub const Doc = struct {
     }
 
     pub fn init(path: []const u8) !Doc {
-        const doc = c.xmlReadFile(@ptrCast(path), null, 0);
+        const doc = c.xmlReadFile(@ptrCast(path), null, c.XML_PARSE_HUGE);
         if (doc == null) return error.ParseFailed;
 
         const root = if (c.xmlDocGetRootElement(doc)) |r| Node.init(r.*) else null;

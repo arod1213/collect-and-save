@@ -104,7 +104,11 @@ pub fn main() !void {
         return;
     };
     switch (stat.kind) {
-        .file => collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {},
+        .file => collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {
+            try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), input.filepath });
+            try writer.interface.flush();
+            return;
+        },
         .directory => {
             var dir = if (std.fs.path.isAbsolute(input.filepath))
                 try std.fs.openDirAbsolute(input.filepath, .{ .iterate = true })
@@ -125,7 +129,11 @@ pub fn main() !void {
                 if (!lib.checks.validAbleton(entry.name)) continue;
                 const full_path = try std.fs.path.join(alloc, &[_][]const u8{ input.filepath, entry.name });
                 defer alloc.free(full_path);
-                collectSet(alloc, &reader.interface, &writer.interface, full_path, &input.cmd) catch continue;
+                collectSet(alloc, &reader.interface, &writer.interface, full_path, &input.cmd) catch {
+                    try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), input.filepath });
+                    try writer.interface.flush();
+                    continue;
+                };
             }
         },
         else => {
