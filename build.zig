@@ -1,31 +1,8 @@
 const std = @import("std");
 
-// fn install(target: *std.Build.ResolvedTarget) !void {
-// cp for mac
-// install into correct locations based on target tag
-//
-// const location = switch (target.result.os.tag) {
-//     .macos => "/usr/loca/bin/cms",
-//     .linux => "/home/arod/.local/bin/cms",
-//     else => "./shit/cms",
-// };
-// _ = b.addSystemCommand(&[_][]const u8{
-//     "cp",
-//     exe.installed_path orelse unreachable,
-//     location,
-// });
-// b.installArtifact(exe);
-// }
-
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-
-    const recent_files = b.addModule("recent_files", .{
-        .root_source_file = b.path("src/recent_files/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
 
     const xml = b.addModule("xml", .{
         .root_source_file = b.path("src/xml/main.zig"),
@@ -63,7 +40,6 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .imports = &.{
-            .{ .name = "recent_files", .module = recent_files },
             .{ .name = "xml", .module = xml },
         },
     });
