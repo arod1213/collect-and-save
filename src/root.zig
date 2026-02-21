@@ -1,6 +1,5 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 const collect = @import("./collect.zig");
 pub const Color = @import("ascii.zig").Color;
@@ -61,7 +60,8 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, config: Colle
         count += 1;
     }
     if (count == 0) {
-        print("\tNo files to collect..\n", .{});
+        try config.writer.print("\tNo files to collect..\n", .{});
+        try config.writer.flush();
     }
 }
 
@@ -77,7 +77,8 @@ pub fn collectAndSave(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.
     defer session_dir.close();
 
     const ableton_version = try utils.getAbletonVersion(alloc, &doc);
-    print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
+    try writer.print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
+    try writer.flush();
 
     const config = CollectFileConfig{
         .reader = reader,
