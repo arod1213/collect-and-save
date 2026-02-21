@@ -24,54 +24,23 @@ pub fn writeFileInfo(filepath: []const u8, prefix: []const u8, success: bool) vo
     }
 }
 
-// ensure termios setup
-pub fn collectSafe(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8) !void {
-    const tmp_name = "./tmp_ableton_collect_and_save.xml";
-    _ = try writeGzipToTmp(alloc, tmp_name, filepath);
+pub fn collectFileSafe(comptime T: type, alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, session_dir: std.fs.Dir, f: T) !void {
+    const sample_path = f.filepath(alloc);
+    if (!ableton.shouldCollect(alloc, session_dir, f.pathType(), sample_path)) return error.Uncollectable;
+    if (sample_path.len == 0) return error.InvalidFileName; // skip invalid entries
 
-    var doc = try xml.Doc.init(tmp_name);
-    if (doc.root == null) return error.NoRoot;
-    defer doc.deinit();
-
-    var session_dir = try collect.getSessionDir(filepath);
-    defer session_dir.close();
-
-    const ableton_version = try getAbletonVersion(alloc, &doc);
-    print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
-
-    switch (ableton_version) {
-        .nine, .ten => {
-            const K = ableton.Ableton10;
-            try collectFileSafe(K, alloc, reader, writer, doc, session_dir);
-        },
-        .eleven, .twelve => {
-            const K = ableton.Ableton11;
-            try collectFileSafe(K, alloc, reader, writer, doc, session_dir);
-        },
-    }
-}
-
-fn collectFileSafe(comptime T: type, alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, doc: Doc, session_dir: std.fs.Dir) !void {
-    var map = try xml.getUniqueNodes(T, alloc, doc.root.?, "FileRef", T.key);
-    defer map.deinit();
-    for (map.values()) |f| {
-        const sample_path = f.filepath(alloc);
-        if (!ableton.shouldCollect(alloc, session_dir, f.pathType(), sample_path)) continue;
-        if (sample_path.len == 0) continue; // skip invalid entries
-
-        try writer.print("would you like to save {s}{s}{s}\n", .{ Color.blue.code(), sample_path, Color.reset.code() });
+    try writer.print("would you like to save {s}{s}{s}\n", .{ Color.blue.code(), sample_path, Color.reset.code() });
+    try writer.flush();
+    const byte = try reader.takeByte();
+    if (byte == 'y') {
+        resolveFile(alloc, session_dir, sample_path) catch |e| {
+            writeFileInfo(sample_path, "saved", false);
+            return e;
+        };
+        writeFileInfo(sample_path, "saved", true);
+    } else {
+        try writer.print("\tskipped\n", .{});
         try writer.flush();
-        const byte = reader.takeByte() catch continue;
-        if (byte == 'y') {
-            resolveFile(alloc, session_dir, sample_path) catch {
-                writeFileInfo(sample_path, "saved", false);
-                continue;
-            };
-            writeFileInfo(sample_path, "saved", true);
-        } else {
-            try writer.print("\tskipped\n", .{});
-            try writer.flush();
-        }
     }
 }
 

@@ -37,11 +37,7 @@ fn collectSet(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, 
             defer file.close();
             try lib.gzip.writeXml(&file, writer);
         },
-        .save, .check, .info => lib.collectAndSave(alloc, filepath, cmd.*) catch |e| {
-            std.log.err("FUCKED {any}", .{e});
-            return e;
-        },
-        .safe => try lib.cli.collectSafe(alloc, reader, writer, filepath),
+        .save, .check, .info, .safe => try lib.collectAndSave(alloc, reader, writer, filepath, cmd.*),
     }
 }
 
