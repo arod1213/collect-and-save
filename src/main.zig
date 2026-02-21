@@ -99,13 +99,13 @@ pub fn main() !void {
     }
 
     const stat = std.fs.cwd().statFile(input.filepath) catch {
-        try writer.interface.print("failed to get info from {s}\n", .{input.filepath});
+        try writer.interface.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), input.filepath, Color.reset.code() });
         try writer.interface.flush();
         return;
     };
     switch (stat.kind) {
         .file => collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {
-            try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), input.filepath });
+            try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), input.filepath, Color.reset.code() });
             try writer.interface.flush();
             return;
         },
