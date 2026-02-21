@@ -7,11 +7,11 @@ The `CollectAndSave` utility allows you to work with Ableton session files (`.al
 ## Usage
 
 ```bash
-cns <command> <filepaths...>
+collect_and_save <command> <filepath>
 ```
 
 - **pos 1:** Command — one of `xml`, `check`, or `save`  
-- **pos 2+:** One or more `.als` filepaths to be processed  
+- **pos 2:** Filepath (either .als file or directory)
 
 ---
 
@@ -25,7 +25,7 @@ The output is sent to `stdout` and can be redirected to a file.
 **Example:**
 
 ```bash
-cns xml './myset.als' > data.xml
+collect_and_save xml './myset.als' > data.xml
 ```
 
 ---
@@ -38,7 +38,7 @@ Shows which files would be collected and which files are missing.
 **Example:**
 
 ```bash
-cns check './myset.als'
+collect_and_save check './myset.als'
 ```
 
 ---
@@ -51,20 +51,31 @@ Files are collected into the **parent directory** where the Ableton file is loca
 **Example:**
 
 ```bash
-cns save './myset.als'
+collect_and_save save './myset.als'
+```
+
+---
+
+### 4. SAFE
+
+Prompts file by file if the user wants to collect the missing file
+
+**Example:**
+
+```bash
+collect_and_save safe './myset.als'
 ```
 
 ---
 
 ## Multiple Filepaths
 
-You can specify multiple `.als` files in a single command.  
-All arguments after the first position will be parsed.
+You can save multiple sets by providing a directory instead of a file
 
 **Example:**
 
 ```bash
-cns save './set1.als' './set2.als'
+collect_and_save save './my ableton project'
 ```
 
 ---
