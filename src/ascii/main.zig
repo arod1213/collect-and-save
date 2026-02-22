@@ -22,7 +22,7 @@ pub fn readLine(r: *std.Io.Reader) ![]const u8 {
 //     try w.flush();
 // }
 pub fn prompt(w: *std.Io.Writer, text: []const u8) !void {
-    try w.print("  {s}{s} {s}\n", .{
+    try w.print("\n  {s}{s} {s}\n", .{
         Style.bold.code(),
         text,
         Style.reset.code(),

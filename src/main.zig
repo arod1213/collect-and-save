@@ -58,11 +58,11 @@ pub fn getConfig(stdin: *std.fs.File, r: *std.Io.Reader, w: *std.Io.Writer) !Inp
 
     _ = try draw.clearScreen(w);
     const cmd = try draw.enumOptions(Command, r, w);
-    _ = try draw.prompt(w, "default = 1 folder, deep = all sub folders\n");
+    _ = try draw.prompt(w, "default = 1 folder, deep = all sub folders");
     const depth = try draw.enumOptions(Depth, r, w);
 
     _ = try draw.prompt(w, "please provide a file or a folder\n");
-    termios.restore(stdin.handle, original_termios);
+    try termios.enableWrite(stdin.handle);
     const filepath = try draw.readLine(r);
 
     return .{
@@ -89,6 +89,8 @@ pub fn main() !void {
     var reader = stdin.reader(&in_buffer);
 
     const input = try getConfig(&stdin, &reader.interface, &writer.interface);
+    const original_termios = try termios.setup(stdin.handle);
+    defer termios.restore(stdin.handle, original_termios);
 
     const stat = std.fs.cwd().statFile(input.filepath) catch {
         try writer.interface.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), input.filepath, Color.reset.code() });

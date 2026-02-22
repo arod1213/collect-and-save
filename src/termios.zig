@@ -11,9 +11,16 @@ pub fn setup(handle: std.posix.fd_t) !std.posix.termios {
     settings.lflag.ICANON = false;
     settings.lflag.ECHO = false;
     settings.cc[@intFromEnum(std.posix.V.MIN)] = 1;
-    settings.cc[@intFromEnum(std.posix.V.TIME)] = 0;
     try std.posix.tcsetattr(handle, .NOW, settings);
+    settings.cc[@intFromEnum(std.posix.V.TIME)] = 0;
     return original;
+}
+
+pub fn enableWrite(handle: std.posix.fd_t) !void {
+    var settings = try std.posix.tcgetattr(handle);
+    settings.lflag.ICANON = true;
+    settings.lflag.ECHO = true;
+    std.posix.tcsetattr(handle, .NOW, settings) catch {};
 }
 
 pub fn restore(handle: std.posix.fd_t, original: std.posix.termios) void {
