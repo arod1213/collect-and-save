@@ -43,9 +43,11 @@ fn collectSet(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, 
     }
 }
 
+pub const Depth = enum { default, deep };
 const Input = struct {
     cmd: Command,
     filepath: []const u8,
+    depth: Depth = .default,
 };
 
 pub fn main() !void {
@@ -64,39 +66,40 @@ pub fn main() !void {
     var in_buffer: [4096]u8 = undefined;
     var reader = stdin.reader(&in_buffer);
 
-    var input: Input = undefined;
-    if (stdin.isTty()) {
-        termios.setup(stdin.handle) catch {
-            std.log.err("failed to setup termios", .{});
-        };
-        defer _ = termios.restore(stdin.handle) catch {};
+    const input = blk: {
+        if (stdin.isTty()) {
+            termios.setup(stdin.handle) catch {
+                std.log.err("failed to setup termios", .{});
+            };
+            defer _ = termios.restore(stdin.handle) catch {};
 
-        input = zli.parseOrdered(Input, std.os.argv) catch {
-            _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
-            try writer.interface.flush();
-            try commandInfo(&writer.interface);
-            return;
-        };
-    } else {
-        const pipe_input = zli.parseOrdered(struct { cmd: Command }, std.os.argv) catch {
-            try commandInfo(&writer.interface);
-            return;
-        };
+            break :blk zli.parseOrdered(Input, std.os.argv) catch {
+                _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
+                try writer.interface.flush();
+                try commandInfo(&writer.interface);
+                return;
+            };
+        } else {
+            const pipe_input = zli.parseOrdered(struct { cmd: Command, depth: Depth = .default }, std.os.argv) catch {
+                try commandInfo(&writer.interface);
+                return;
+            };
 
-        const filepath = reader.interface.takeDelimiter('\n') catch return orelse " ";
-        const trimmed = std.mem.trimRight(u8, filepath, "\r\n");
+            const filepath = reader.interface.takeDelimiter('\n') catch return orelse " ";
+            const trimmed = std.mem.trimRight(u8, filepath, "\r\n");
 
-        if (pipe_input.cmd == .safe) {
-            try writer.interface.print("{s}safe mode is not allowed when piping input in{s}\n", .{ Color.red.code(), Color.reset.code() });
-            try writer.interface.flush();
-            return;
+            if (pipe_input.cmd == .safe) {
+                try writer.interface.print("{s}safe mode is not allowed when piping input in{s}\n", .{ Color.red.code(), Color.reset.code() });
+                try writer.interface.flush();
+                return;
+            }
+
+            break :blk Input{
+                .filepath = trimmed,
+                .cmd = pipe_input.cmd,
+            };
         }
-
-        input = .{
-            .filepath = trimmed,
-            .cmd = pipe_input.cmd,
-        };
-    }
+    };
 
     const stat = std.fs.cwd().statFile(input.filepath) catch {
         try writer.interface.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), input.filepath, Color.reset.code() });
@@ -116,24 +119,48 @@ pub fn main() !void {
                 try std.fs.cwd().openDir(input.filepath, .{ .iterate = true });
             defer dir.close();
 
-            var iter = dir.iterate();
-            while (try iter.next()) |entry| {
-                switch (entry.kind) {
-                    .file => {},
-                    else => continue,
-                }
-                defer {
-                    _ = arena.reset(.free_all);
-                }
+            switch (input.depth) {
+                .default => {
+                    var iter = dir.iterate();
+                    while (try iter.next()) |entry| {
+                        switch (entry.kind) {
+                            .file => {},
+                            else => continue,
+                        }
+                        defer {
+                            _ = arena.reset(.free_all);
+                        }
 
-                if (!lib.checks.validAbleton(entry.name)) continue;
-                const full_path = try std.fs.path.join(alloc, &[_][]const u8{ input.filepath, entry.name });
-                defer alloc.free(full_path);
-                collectSet(alloc, &reader.interface, &writer.interface, full_path, &input.cmd) catch {
-                    try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), input.filepath });
-                    try writer.interface.flush();
-                    continue;
-                };
+                        if (!lib.checks.validAbleton(entry.name)) continue;
+                        const full_path = try std.fs.path.join(alloc, &[_][]const u8{ input.filepath, entry.name });
+                        defer alloc.free(full_path);
+                        collectSet(alloc, &reader.interface, &writer.interface, full_path, &input.cmd) catch {
+                            try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), input.filepath });
+                            try writer.interface.flush();
+                            continue;
+                        };
+                    }
+                },
+                .deep => {
+                    var iter = try dir.walk(std.heap.page_allocator);
+                    defer iter.deinit();
+
+                    while (try iter.next()) |entry| {
+                        switch (entry.kind) {
+                            .file => {},
+                            else => continue,
+                        }
+                        if (!lib.checks.validAbleton(entry.basename)) continue;
+
+                        defer _ = arena.reset(.free_all); // free main arena if collecting set
+
+                        collectSet(alloc, &reader.interface, &writer.interface, entry.path, &input.cmd) catch {
+                            try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), input.filepath });
+                            try writer.interface.flush();
+                            continue;
+                        };
+                    }
+                },
             }
         },
         else => {
