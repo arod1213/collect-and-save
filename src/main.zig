@@ -4,7 +4,8 @@ const print = std.debug.print;
 const lib = @import("collect_and_save");
 const zli = @import("zli");
 const termios = @import("termios.zig");
-const Color = lib.Color;
+const draw = lib.ascii;
+const Color = draw.Color;
 
 const Command = lib.Command;
 fn commandInfo(w: *std.Io.Writer) !void {
@@ -50,6 +51,27 @@ const Input = struct {
     depth: Depth = .default,
 };
 
+// TODO: dont prompt for depth if filepath is a directory (or if file not found)
+pub fn getConfig(stdin: *std.fs.File, r: *std.Io.Reader, w: *std.Io.Writer) !Input {
+    const original_termios = try termios.setup(stdin.handle);
+    defer termios.restore(stdin.handle, original_termios);
+
+    _ = try draw.clearScreen(w);
+    const cmd = try draw.enumOptions(Command, r, w);
+    _ = try draw.prompt(w, "default = 1 folder, deep = all sub folders\n");
+    const depth = try draw.enumOptions(Depth, r, w);
+
+    _ = try draw.prompt(w, "please provide a file or a folder\n");
+    termios.restore(stdin.handle, original_termios);
+    const filepath = try draw.readLine(r);
+
+    return .{
+        .cmd = cmd,
+        .filepath = filepath,
+        .depth = depth,
+    };
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{ .verbose_log = false }){};
     var arena = std.heap.ArenaAllocator.init(gpa.allocator());
@@ -66,40 +88,7 @@ pub fn main() !void {
     var in_buffer: [4096]u8 = undefined;
     var reader = stdin.reader(&in_buffer);
 
-    const input = blk: {
-        if (stdin.isTty()) {
-            termios.setup(stdin.handle) catch {
-                std.log.err("failed to setup termios", .{});
-            };
-            defer _ = termios.restore(stdin.handle) catch {};
-
-            break :blk zli.parseOrdered(Input, std.os.argv) catch {
-                _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
-                try writer.interface.flush();
-                try commandInfo(&writer.interface);
-                return;
-            };
-        } else {
-            const pipe_input = zli.parseOrdered(struct { cmd: Command, depth: Depth = .default }, std.os.argv) catch {
-                try commandInfo(&writer.interface);
-                return;
-            };
-
-            const filepath = reader.interface.takeDelimiter('\n') catch return orelse " ";
-            const trimmed = std.mem.trimRight(u8, filepath, "\r\n");
-
-            if (pipe_input.cmd == .safe) {
-                try writer.interface.print("{s}safe mode is not allowed when piping input in{s}\n", .{ Color.red.code(), Color.reset.code() });
-                try writer.interface.flush();
-                return;
-            }
-
-            break :blk Input{
-                .filepath = trimmed,
-                .cmd = pipe_input.cmd,
-            };
-        }
-    };
+    const input = try getConfig(&stdin, &reader.interface, &writer.interface);
 
     const stat = std.fs.cwd().statFile(input.filepath) catch {
         try writer.interface.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), input.filepath, Color.reset.code() });

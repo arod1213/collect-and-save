@@ -2,7 +2,9 @@ const std = @import("std");
 const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
 const collect = @import("./collect.zig");
-pub const Color = @import("ascii.zig").Color;
+
+pub const ascii = @import("ascii");
+const Color = ascii.Color;
 
 pub const gzip = @import("gzip.zig");
 pub const checks = @import("./checks.zig");

@@ -28,7 +28,7 @@ pub fn collectFileSafe(comptime T: type, alloc: Allocator, reader: *std.Io.Reade
     const sample_path = f.filepath(alloc);
     if (sample_path.len == 0) return error.InvalidFileName; // skip invalid entries
 
-    try writer.print("would you like to save {s}{s}{s}: [y\n]\n", .{ Color.blue.code(), sample_path, Color.reset.code() });
+    try writer.print("would you like to save {s}{s}{s}: [y/n]\n", .{ Color.blue.code(), sample_path, Color.reset.code() });
     try writer.flush();
     const byte = try reader.takeByte();
     if (byte == 'y') {

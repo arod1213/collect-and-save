@@ -36,10 +36,17 @@ pub fn build(b: *std.Build) void {
         else => {},
     }
 
+    const ascii = b.addModule("ascii", .{
+        .root_source_file = b.path("src/ascii/main.zig"),
+        .target = target,
+        .imports = &.{},
+    });
+
     const mod = b.addModule("collect_and_save", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .imports = &.{
+            .{ .name = "ascii", .module = ascii },
             .{ .name = "xml", .module = xml },
         },
     });
