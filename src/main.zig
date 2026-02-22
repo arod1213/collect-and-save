@@ -157,7 +157,7 @@ pub fn main() !void {
     }
 }
 
-pub fn collectIfValid(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: Command) !void {
+pub fn collectIfValid(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
     if (!lib.checks.validAbleton(filepath)) return error.Invalid;
 
     collectSet(alloc, reader, writer, filepath, cmd) catch |e| {
