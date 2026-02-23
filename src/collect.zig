@@ -23,7 +23,7 @@ pub fn getSessionDir(filepath: []const u8) !std.fs.Dir {
     }
 }
 
-const FileExt = enum { wav, mp3, flac, ogg, mp4, m4a, aif, adv, amxd, adg };
+pub const FileExt = enum { wav, mp3, flac, ogg, mp4, m4a, aif, adv, amxd, adg };
 pub fn collectFolder(filepath: []const u8) ![]const u8 {
     const ext = std.fs.path.extension(filepath);
     if (ext.len < 2) return error.InvalidExtension;

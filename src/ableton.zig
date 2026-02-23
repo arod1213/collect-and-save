@@ -71,10 +71,8 @@ pub fn shouldCollect(alloc: Allocator, cwd: std.fs.Dir, path_type: PathType, fil
 
     const stem = ext[1..];
 
-    if (std.meta.stringToEnum(collect.FileExt, stem)) {
-        return true;
-    }
-    return false;
+    _ = std.meta.stringToEnum(collect.FileExt, stem) orelse return false;
+    return true;
 }
 
 pub const Ableton11 = struct {
