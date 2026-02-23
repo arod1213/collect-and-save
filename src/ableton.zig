@@ -67,7 +67,7 @@ pub fn shouldCollect(alloc: Allocator, cwd: std.fs.Dir, path_type: PathType, fil
     }
 
     const ext = std.fs.path.extension(filepath);
-    if (ext.len < 2) return error.InvalidExtension;
+    if (ext.len < 2) return false;
 
     const stem = ext[1..];
 
