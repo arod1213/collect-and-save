@@ -24,8 +24,8 @@ pub fn writeFileInfo(filepath: []const u8, prefix: []const u8, success: bool) vo
     }
 }
 
-pub fn collectFileSafe(comptime T: type, alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, session_dir: std.fs.Dir, f: T) !void {
-    const sample_path = f.filepath(alloc);
+pub fn collectFileSafe(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, session_dir: std.fs.Dir, f: ableton.AbletonFile) !void {
+    const sample_path = f.file_path;
     if (sample_path.len == 0) return error.InvalidFileName; // skip invalid entries
 
     try writer.print("would you like to save {s}{s}{s}: [y\n]\n", .{ Color.blue.code(), sample_path, Color.reset.code() });

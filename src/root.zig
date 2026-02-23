@@ -24,17 +24,17 @@ const CollectFileConfig = struct {
     session_dir: std.fs.Dir,
 };
 
-fn collectFile(comptime T: type, alloc: Allocator, f: T, config: CollectFileConfig) !void {
-    const sample_path = f.filepath(alloc);
+fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileConfig) !void {
+    const sample_path = file.file_path;
     switch (config.cmd) {
         .check => {
-            const collectable = ableton.shouldCollect(alloc, config.session_dir, f.pathType(), sample_path);
+            const collectable = ableton.shouldCollect(alloc, config.session_dir, file.path_type, sample_path);
             if (!collectable) return error.FileAlreadyFound;
             const exists = checks.fileExists(sample_path);
             utils.writeFileInfo(sample_path, "would save", exists);
         },
         .save => {
-            const collectable = ableton.shouldCollect(alloc, config.session_dir, f.pathType(), sample_path);
+            const collectable = ableton.shouldCollect(alloc, config.session_dir, file.path_type, sample_path);
             if (!collectable) return error.FileAlreadyFound;
 
             const prefix = "saved";
@@ -45,13 +45,13 @@ fn collectFile(comptime T: type, alloc: Allocator, f: T, config: CollectFileConf
             utils.writeFileInfo(sample_path, prefix, true);
         },
         .info => {
-            try config.writer.print("{f}\n", .{f});
+            try config.writer.print("{f}\n", .{file});
             try config.writer.flush();
         },
         .safe => {
-            const collectable = ableton.shouldCollect(alloc, config.session_dir, f.pathType(), sample_path);
+            const collectable = ableton.shouldCollect(alloc, config.session_dir, file.path_type, sample_path);
             if (!collectable) return error.FileAlreadyFound;
-            try utils.collectFileSafe(T, alloc, config.reader, config.writer, config.session_dir, f);
+            try utils.collectFileSafe(alloc, config.reader, config.writer, config.session_dir, file);
         },
         .xml => {},
     }
@@ -63,7 +63,8 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, config: Colle
 
     var count: usize = 0;
     for (map.values()) |f| {
-        collectFile(T, alloc, f, config) catch continue;
+        const ableton_file = f.asAbletonFile(alloc);
+        collectFile(alloc, ableton_file, config) catch continue;
         count += 1;
     }
     if (count == 0) {
