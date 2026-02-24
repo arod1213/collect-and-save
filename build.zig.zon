@@ -37,8 +37,8 @@
             .hash = "zli-0.0.0-jFqMJuFGAAAaUO3Y2s2yITZ4LSLA7vzloQSglHjRgm5J",
         },
         .zxml = .{
-            .url = "git+https://github.com/arod1213/zxml.git#e43d9aaac96521c7705c92ad375d98fad0faaee5",
-            .hash = "zxml-0.0.0-vPmDf5NVAADB34msiJUqYaxj_ISMF8QZN85bUk--NQJM",
+            .url = "git+https://github.com/arod1213/zxml.git#986cf25b19e449d61c8b2d43484e6d1ce3af40e9",
+            .hash = "zxml-0.0.0-vPmDfwdWAADMYbwaoT_0d4TSLm7ncUUpPP8V2CcmB2y5",
         },
     },
     .paths = .{
