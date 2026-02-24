@@ -9,8 +9,8 @@ pub const checks = @import("./checks.zig");
 pub const xml = @import("xml");
 pub const utils = @import("root_utils.zig");
 
-const Node = xml.Node;
-const Doc = xml.Doc;
+const Node = xml.types.Node;
+const Doc = xml.types.Doc;
 
 const ableton = @import("ableton.zig");
 const PathType = ableton.PathType;
@@ -78,7 +78,7 @@ pub fn collectAndSave(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.
     _ = try utils.writeGzipToTmp(alloc, tmp_name, filepath);
     defer std.fs.cwd().deleteFile(tmp_name) catch {};
 
-    var doc = try xml.Doc.init(tmp_name);
+    var doc = try Doc.init(tmp_name);
     if (doc.root == null) return error.NoRoot;
     defer doc.deinit();
 

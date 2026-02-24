@@ -9,8 +9,8 @@ pub const gzip = @import("gzip.zig");
 pub const checks = @import("./checks.zig");
 pub const xml = @import("xml");
 
-const Node = xml.Node;
-const Doc = xml.Doc;
+const Node = xml.types.Node;
+const Doc = xml.types.Doc;
 
 const ableton = @import("ableton.zig");
 const PathType = ableton.PathType;
@@ -44,7 +44,7 @@ pub fn collectFileSafe(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io
 }
 
 const VersionError = error{ UnknownVersion, UnsupportedVersion };
-pub fn getAbletonVersion(alloc: Allocator, doc: *xml.Doc) VersionError!ableton.AbletonVersion {
+pub fn getAbletonVersion(alloc: Allocator, doc: *Doc) VersionError!ableton.AbletonVersion {
     const ableton_info = xml.parse.nodeToT(ableton.Header, alloc, doc.root.?) catch {
         print("Unsupported Ableton Version\n", .{});
         return VersionError.UnknownVersion;

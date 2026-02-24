@@ -4,37 +4,11 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const xml = b.addModule("xml", .{
-        .root_source_file = b.path("src/xml/main.zig"),
+    const xml_dep = b.dependency("zxml", .{
         .target = target,
         .optimize = optimize,
     });
-    xml.linkSystemLibrary("xml2", .{
-        .needed = true,
-        .use_pkg_config = .yes,
-        .preferred_link_mode = .dynamic,
-        .weak = false,
-        .search_strategy = .paths_first,
-    });
-    xml.link_libc = true;
-
-    switch (target.result.os.tag) {
-        .linux => {
-            xml.addSystemIncludePath(.{ .cwd_relative = "/usr/include/libxml2" });
-            // xml.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
-        },
-        .macos => {
-            if (target.result.cpu.arch == .x86_64) {
-                const sdk = b.sysroot orelse "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
-                xml.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/include" }) });
-                xml.addLibraryPath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "/usr/lib" }) });
-            } else {
-                // xml.addIncludePath(.{ .cwd_relative = "/usr/local/include/libxml2" });
-                // xml.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include/libxml2" });
-            }
-        },
-        else => {},
-    }
+    const xml = xml_dep.module("zxml");
 
     const mod = b.addModule("collect_and_save", .{
         .root_source_file = b.path("src/root.zig"),
