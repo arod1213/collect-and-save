@@ -22,7 +22,7 @@ pub const Command = enum { save, xml, check, info, safe };
 pub fn collectIfValid(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
     if (!lib.checks.validAbleton(filepath)) return error.Invalid;
 
-    lib.collectSet(alloc, reader, writer, filepath, cmd) catch |e| {
+    collectSet(alloc, reader, writer, filepath, cmd) catch |e| {
         try writer.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), filepath });
         try writer.flush();
         return e;
