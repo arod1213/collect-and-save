@@ -20,29 +20,6 @@ fn commandInfo(w: *std.Io.Writer) !void {
     return;
 }
 
-fn collectSet(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
-    if (!lib.checks.validAbleton(filepath)) {
-        _ = try writer.print("{s}{s} is not a valid ableton file{s}\n", .{ Color.red.code(), std.fs.path.basename(filepath), Color.reset.code() });
-        try writer.flush();
-        return;
-    }
-
-    if (lib.checks.isBackup(filepath)) {
-        _ = try writer.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
-        try writer.flush();
-        return;
-    }
-
-    switch (cmd.*) {
-        .xml => {
-            var file = try std.fs.cwd().openFile(filepath, .{});
-            defer file.close();
-            try lib.gzip.writeXml(&file, writer);
-        },
-        .save, .check, .info, .safe => try lib.collectAndSave(alloc, reader, writer, filepath, cmd.*),
-    }
-}
-
 pub const Depth = enum { default, deep };
 const Input = struct {
     cmd: Command,
@@ -107,7 +84,7 @@ pub fn main() !void {
         return;
     };
     switch (stat.kind) {
-        .file => collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {
+        .file => lib.collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {
             try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), input.filepath, Color.reset.code() });
             try writer.interface.flush();
             return;
@@ -130,7 +107,7 @@ pub fn main() !void {
                         const full_path = try std.fs.path.join(alloc, &[_][]const u8{ input.filepath, entry.name });
                         defer alloc.free(full_path);
                         defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectIfValid(alloc, &reader.interface, &writer.interface, full_path, &input.cmd) catch continue;
+                        lib.collectIfValid(alloc, &reader.interface, &writer.interface, full_path, &input.cmd) catch continue;
                     }
                 },
                 .deep => {
@@ -145,7 +122,7 @@ pub fn main() !void {
                         if (!lib.checks.validAbleton(entry.basename)) continue;
 
                         defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectIfValid(alloc, &reader.interface, &writer.interface, entry.path, &input.cmd) catch continue;
+                        lib.collectIfValid(alloc, &reader.interface, &writer.interface, entry.path, &input.cmd) catch continue;
                     }
                 },
             }
@@ -155,14 +132,4 @@ pub fn main() !void {
             try writer.interface.flush();
         },
     }
-}
-
-pub fn collectIfValid(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
-    if (!lib.checks.validAbleton(filepath)) return error.Invalid;
-
-    collectSet(alloc, reader, writer, filepath, cmd) catch |e| {
-        try writer.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), filepath });
-        try writer.flush();
-        return e;
-    };
 }
