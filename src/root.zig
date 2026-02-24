@@ -93,7 +93,7 @@ const CollectFileConfig = struct {
     session_dir: std.fs.Dir,
 };
 fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, config: CollectFileConfig) !void {
-    var map = try xml.getUniqueNodes(T, alloc, head, "FileRef", T.key);
+    var map = try xml.find.getNodesUnique(T, alloc, head, "FileRef", T.key);
     defer map.deinit();
 
     var count: usize = 0;
