@@ -1,18 +1,20 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
-const collect = @import("./collect.zig");
-pub const Color = @import("ascii.zig").Color;
 
-pub const gzip = @import("gzip.zig");
-pub const checks = @import("./checks.zig");
+pub const Color = @import("ascii.zig").Color;
 pub const xml = @import("xml");
-pub const utils = @import("root_utils.zig");
+
+const lib = @import("lib/main.zig");
+pub const collect = lib.collect;
+pub const gzip = lib.gzip;
+pub const checks = lib.checks;
+pub const utils = lib.commands;
 
 const Node = xml.types.Node;
 const Doc = xml.types.Doc;
 
-const ableton = @import("ableton.zig");
+const ableton = lib.ableton;
 const PathType = ableton.PathType;
 
 pub const Command = enum { save, xml, check, info, safe };
