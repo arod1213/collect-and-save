@@ -37,6 +37,16 @@ pub const FileExt = enum {
     amxd,
     adg,
 };
+pub fn validExtension(filepath: []const u8) bool {
+    const ext = std.fs.path.extension(filepath);
+    if (ext.len < 2) return false;
+
+    const stem = ext[1..];
+
+    _ = std.meta.stringToEnum(FileExt, stem) orelse return false;
+    return true;
+}
+
 pub fn collectFolder(filepath: []const u8) ![]const u8 {
     const ext = std.fs.path.extension(filepath);
     if (ext.len < 2) return error.InvalidExtension;

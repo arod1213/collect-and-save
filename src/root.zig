@@ -8,6 +8,7 @@ pub const gzip = @import("gzip.zig");
 pub const checks = @import("./checks.zig");
 pub const xml = @import("xml");
 pub const utils = @import("root_utils.zig");
+pub const database = @import("./commands/database.zig");
 
 const Node = xml.Node;
 const Doc = xml.Doc;
@@ -15,7 +16,7 @@ const Doc = xml.Doc;
 const ableton = @import("ableton.zig");
 const PathType = ableton.PathType;
 
-pub const Command = enum { save, xml, check, info, safe };
+pub const Command = enum { save, xml, check, info, safe, setup };
 
 const CollectFileConfig = struct {
     reader: *std.Io.Reader,
@@ -27,6 +28,7 @@ const CollectFileConfig = struct {
 fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileConfig) !void {
     const sample_path = file.file_path;
     switch (config.cmd) {
+        .setup => {},
         .check => {
             const collectable = ableton.shouldCollect(alloc, config.session_dir, file.path_type, sample_path);
             if (!collectable) return error.FileAlreadyFound;

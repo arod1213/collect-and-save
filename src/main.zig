@@ -40,6 +40,7 @@ fn collectSet(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, 
             try lib.gzip.writeXml(&file, writer);
         },
         .save, .check, .info, .safe => try lib.collectAndSave(alloc, reader, writer, filepath, cmd.*),
+        .setup => {},
     }
 }
 
@@ -65,6 +66,9 @@ pub fn main() !void {
     defer stdin.close();
     var in_buffer: [4096]u8 = undefined;
     var reader = stdin.reader(&in_buffer);
+
+    var conn = try lib.database.setup("test.db");
+    defer conn.deinit();
 
     const input = blk: {
         if (stdin.isTty()) {
@@ -119,6 +123,13 @@ pub fn main() !void {
                 try std.fs.cwd().openDir(input.filepath, .{ .iterate = true });
             defer dir.close();
 
+            switch (input.cmd) {
+                .setup => {
+                    try lib.database.scanDir(alloc, &conn, input.filepath);
+                    return;
+                },
+                else => {},
+            }
             switch (input.depth) {
                 .default => {
                     var iter = dir.iterate();

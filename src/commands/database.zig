@@ -1,0 +1,71 @@
+const sqlite = @import("sqlite");
+const std = @import("std");
+const collect = @import("../collect.zig");
+const Allocator = std.mem.Allocator;
+
+pub fn setup(name: []const u8) !sqlite.Conn {
+    var conn = try sqlite.Conn.init(name);
+    const sql = "CREATE TABLE if not EXISTS files (filename TEXT NOT NULL, full_path TEXT PRIMARY KEY NOT NULL, size INTEGER NOT NULL)";
+    try conn.exec(sql, sqlite.emptyCallback);
+    return conn;
+}
+// const sql = "INSERT INTO files (filename, full_path, size) VALUES (?, ?, ?)";
+
+pub fn reset(conn: *sqlite.Conn) !void {
+    const sql = "DELETE FROM files";
+    try conn.exec(sql, sqlite.emptyCallback);
+}
+
+pub const File = struct {
+    filename: []const u8,
+    full_path: []const u8,
+    size: u64,
+};
+
+pub fn findMatch(conn: *sqlite.Conn, filename: []const u8, size: u64) !?File {
+    const sql = "SELECT filename, full_path, size FROM files WHERE filename = @name AND size = @size LIMIT 1";
+    const stmt = try sqlite.Statement.init(conn, sql);
+    defer stmt.close() catch {};
+    try stmt.bindParam(1, filename);
+    try stmt.bindParam(2, size);
+    _ = try stmt.exec();
+    return stmt.readStruct(File) catch null;
+}
+
+pub fn scanDir(alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void {
+    var dir = if (std.fs.path.isAbsolute(dir_path))
+        try std.fs.openDirAbsolute(dir_path, .{ .iterate = true })
+    else
+        try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
+
+    var iter = try dir.walk(alloc);
+    try conn.beginTransaction();
+    errdefer conn.closeTransaction(false) catch {};
+
+    const sql = "INSERT INTO files (filename, full_path, size) VALUES (?, ?, ?) ON CONFLICT DO NOTHING";
+    const stmt = try sqlite.Statement.init(conn, sql);
+    defer stmt.close() catch {};
+    while (try iter.next()) |entry| {
+        switch (entry.kind) {
+            .file => {
+                if (!collect.validExtension(entry.basename)) continue;
+            },
+            else => continue,
+        }
+        var file = entry.dir.openFile(entry.path, .{}) catch continue;
+        defer file.close();
+        const stat = try file.stat();
+
+        const joined_path = try std.fs.path.resolve(alloc, &[_][]const u8{ dir_path, entry.path });
+        const fullpath = try std.fs.realpathAlloc(alloc, joined_path);
+        defer alloc.free(fullpath);
+
+        defer stmt.reset() catch {};
+
+        try stmt.bindParam(1, entry.basename);
+        try stmt.bindParam(2, fullpath);
+        try stmt.bindParam(3, stat.size);
+        _ = try stmt.exec();
+    }
+    try conn.closeTransaction(true);
+}
