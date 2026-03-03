@@ -36,6 +36,10 @@
             .url = "git+https://github.com/arod1213/zli.git#6f27174bb3a51a7c187b7f641058010b24b7dc26",
             .hash = "zli-0.0.0-jFqMJuFGAAAaUO3Y2s2yITZ4LSLA7vzloQSglHjRgm5J",
         },
+        .sqlzig = .{
+            .url = "git+https://github.com/arod1213/sqlzig.git#138bacd8a1550bbbe59af36172be2acc4f382699",
+            .hash = "sqlzig-0.0.0-TWhuvAMCmABE0BRf-qD8DUmRvkUlnTfaKCRaiJObLLAN",
+        },
     },
     .paths = .{
         "build.zig",

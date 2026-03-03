@@ -4,6 +4,11 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const sqlite_dep = b.dependency("sqlzig", .{
+        .optimize = optimize,
+    });
+    const sqlite = sqlite_dep.module("sqlzig");
+
     const xml = b.addModule("xml", .{
         .root_source_file = b.path("src/xml/main.zig"),
         .target = target,
@@ -40,6 +45,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .imports = &.{
+            .{ .name = "sqlite", .module = sqlite },
             .{ .name = "xml", .module = xml },
         },
     });
