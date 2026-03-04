@@ -64,14 +64,7 @@ pub fn main() !void {
             try collectAll(&input, filepath.?, .safe, .none);
         },
         .save => {
-            if (filepath == null) {
-                _ = try writer.interface.print("{s}please provide a folder or file {s}\n", .{
-                    Color.red.code(),
-                    Color.reset.code(),
-                });
-                try writer.interface.flush();
-                return;
-            }
+            ensurePath(&writer.interface, filepath) catch return;
             try collectAll(&input, filepath.?, .save, .none);
         },
     }
