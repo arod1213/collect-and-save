@@ -22,14 +22,19 @@ pub const File = struct {
     size: u64,
 };
 
-pub fn findMatch(conn: *sqlite.Conn, basename: []const u8, size: u64) !?File {
+pub fn findMatch(alloc: Allocator, conn: *sqlite.Conn, basename: []const u8, size: u64) !?File {
     const sql = "SELECT filename, full_path, size FROM files WHERE filename = @name AND size = @size LIMIT 1";
     const stmt = try sqlite.Statement.init(conn, sql);
     defer stmt.close() catch {};
     try stmt.bindParam(1, basename);
     try stmt.bindParam(2, size);
     _ = try stmt.exec();
-    return stmt.readStruct(File) catch null;
+    const tmp = stmt.readStruct(File) catch return null;
+    return File{
+        .filename = try alloc.dupe(u8, tmp.filename),
+        .full_path = try alloc.dupe(u8, tmp.full_path),
+        .size = tmp.size,
+    };
 }
 
 pub fn scanDir(alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void {

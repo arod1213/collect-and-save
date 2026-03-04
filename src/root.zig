@@ -34,7 +34,7 @@ fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileC
             if (!collectable) return error.FileAlreadyFound;
             var exists = checks.fileExists(sample_path);
             if (!exists) {
-                const match = try database.findMatch(config.db, file.file_name, file.file_size);
+                const match = try database.findMatch(alloc, config.db, file.file_name, file.file_size);
                 if (match != null) {
                     exists = true;
                 }
@@ -47,7 +47,7 @@ fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileC
 
             const prefix = "saved";
             utils.resolveFile(alloc, config.session_dir, sample_path) catch |e| {
-                const match = try database.findMatch(config.db, file.file_name, file.file_size);
+                const match = try database.findMatch(alloc, config.db, file.file_name, file.file_size);
                 if (match) |m| {
                     try utils.resolveFile(alloc, config.session_dir, m.full_path);
                 } else {
