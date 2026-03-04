@@ -52,6 +52,8 @@ pub fn main() !void {
     switch (cmd) {
         .reset => return try lib.database.reset(&conn),
         .scan => {
+            _ = try input.w.print("scanning files please wait..\n", .{});
+            try input.w.flush();
             ensurePath(&writer.interface, filepath) catch return;
             return try lib.database.scanDir(alloc, &conn, filepath.?);
         },
