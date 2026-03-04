@@ -44,6 +44,11 @@ pub fn main() !void {
     };
 
     const filepath = if (args.len > 2) span(args[2]) else null;
+    const input = CollectInput{
+        .w = &writer.interface,
+        .r = &reader.interface,
+        .db = &conn,
+    };
     switch (cmd) {
         .reset => return try lib.database.reset(&conn),
         .scan => {
@@ -52,11 +57,11 @@ pub fn main() !void {
         },
         .check => {
             ensurePath(&writer.interface, filepath) catch return;
-            try collectAll(&conn, &reader.interface, &writer.interface, filepath.?, .check, .deep);
+            try collectAll(&input, filepath.?, .check, .deep);
         },
         .safe => {
             ensurePath(&writer.interface, filepath) catch return;
-            try collectAll(&conn, &reader.interface, &writer.interface, filepath.?, .safe, .none);
+            try collectAll(&input, filepath.?, .safe, .none);
         },
         .save => {
             if (filepath == null) {
@@ -67,15 +72,21 @@ pub fn main() !void {
                 try writer.interface.flush();
                 return;
             }
-            try collectAll(&conn, &reader.interface, &writer.interface, filepath.?, .save, .none);
+            try collectAll(&input, filepath.?, .save, .none);
         },
     }
 }
 
-pub fn collectAll(conn: *sqlite.Conn, r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
+const CollectInput = struct {
+    w: *std.Io.Writer,
+    r: *std.Io.Reader,
+    db: *sqlite.Conn,
+};
+
+pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
     const stat = std.fs.cwd().statFile(filepath) catch {
-        try w.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), filepath, Color.reset.code() });
-        try w.flush();
+        try input.w.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), filepath, Color.reset.code() });
+        try input.w.flush();
         return;
     };
 
@@ -83,7 +94,7 @@ pub fn collectAll(conn: *sqlite.Conn, r: *Reader, w: *Writer, filepath: []const 
     defer arena.deinit();
     const alloc = arena.allocator();
     switch (stat.kind) {
-        .file => try collectSet(alloc, conn, r, w, filepath, cmd),
+        .file => try collectSet(alloc, input, filepath, cmd),
         .directory => {
             var dir = if (std.fs.path.isAbsolute(filepath))
                 try std.fs.openDirAbsolute(filepath, .{ .iterate = true })
@@ -105,7 +116,7 @@ pub fn collectAll(conn: *sqlite.Conn, r: *Reader, w: *Writer, filepath: []const 
                         const full_path = try std.fs.path.join(alloc, &[_][]const u8{ filepath, entry.name });
                         defer alloc.free(full_path);
 
-                        collectSet(alloc, conn, r, w, full_path, cmd) catch continue;
+                        collectSet(alloc, input, full_path, cmd) catch continue;
                     }
                 },
                 .none => {
@@ -120,7 +131,7 @@ pub fn collectAll(conn: *sqlite.Conn, r: *Reader, w: *Writer, filepath: []const 
                         if (!lib.checks.validAbleton(entry.basename)) continue;
 
                         defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectSet(alloc, conn, r, w, filepath, cmd) catch continue;
+                        collectSet(alloc, input, filepath, cmd) catch continue;
                     }
                 },
             }
@@ -141,10 +152,10 @@ fn ensurePath(w: *Writer, filepath: ?[]const u8) !void {
     return;
 }
 
-fn collectSet(alloc: Allocator, conn: *sqlite.Conn, r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCommand) !void {
-    defer w.flush() catch {};
+fn collectSet(alloc: Allocator, input: *const CollectInput, filepath: []const u8, cmd: lib.SaveCommand) !void {
+    defer input.w.flush() catch {};
     if (!lib.checks.validAbleton(filepath)) {
-        _ = try w.print("{s}{s} is not a valid ableton file{s}\n", .{
+        _ = try input.w.print("{s}{s} is not a valid ableton file{s}\n", .{
             Color.red.code(),
             std.fs.path.basename(filepath),
             Color.reset.code(),
@@ -153,8 +164,8 @@ fn collectSet(alloc: Allocator, conn: *sqlite.Conn, r: *Reader, w: *Writer, file
     }
 
     if (lib.checks.isBackup(filepath)) {
-        _ = try w.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
+        _ = try input.w.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
         return;
     }
-    try lib.collectAndSave(alloc, conn, r, w, filepath, cmd);
+    try lib.collectAndSave(alloc, input.db, input.r, input.w, filepath, cmd);
 }
