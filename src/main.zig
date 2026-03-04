@@ -1,5 +1,6 @@
 const std = @import("std");
 const span = std.mem.span;
+const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const Writer = std.Io.Writer;
 const Reader = std.Io.Reader;
@@ -14,7 +15,6 @@ pub fn installPath(alloc: Allocator) ![]const u8 {
     const home = std.posix.getenv("HOME") orelse return error.NoHomeDir;
     const path = try std.fs.path.join(alloc, &[_][]const u8{ home, "Documents/CollectAndSave" });
 
-    std.log.info("install path is {s}", .{path});
     _ = std.fs.makeDirAbsolute(path) catch |e| {
         switch (e) {
             error.PathAlreadyExists => {},
@@ -25,7 +25,31 @@ pub fn installPath(alloc: Allocator) ![]const u8 {
 }
 
 const Depth = enum { none, deep };
-const Command = enum { check, safe, save, scan, reset };
+const AbletonData = struct { filepath: []const u8, depth: Depth = .none };
+const Command = enum {
+    // ableton
+    check, // safe <file/folder> <depth>
+    safe, // safe <file/folder> <depth>
+    save, // save <file/folder> <depth>
+    // db
+    scan, // scan <folder>
+    reset, // reset
+};
+
+fn enumInfo(comptime T: type, w: *std.Io.Writer) !void {
+    _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
+    const info = @typeInfo(T);
+    assert(info == .@"enum");
+
+    inline for (info.@"enum".fields) |field| {
+        _ = try w.print("\t{s}", .{field.name});
+    }
+    _ = try w.write("\n");
+    try w.flush();
+
+    return;
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{ .verbose_log = false }){};
     var arena = std.heap.ArenaAllocator.init(gpa.allocator());
@@ -43,7 +67,7 @@ pub fn main() !void {
     var reader = stdin.reader(&in_buffer);
 
     const install_path = try installPath(alloc);
-    const db_path = try std.fs.path.join(alloc, &[_][]const u8{ install_path, "test.db" });
+    const db_path = try std.fs.path.join(alloc, &[_][]const u8{ install_path, "collect.db" });
 
     var conn = try lib.database.setup(db_path);
     defer conn.deinit();
@@ -55,36 +79,35 @@ pub fn main() !void {
 
     const args = std.os.argv;
     const cmd = std.meta.stringToEnum(Command, std.mem.span(args[1])) orelse {
-        _ = try writer.interface.print("{s}please provide a command {s}\n", .{ Color.red.code(), Color.reset.code() });
-        try writer.interface.flush();
+        try enumInfo(Command, &writer.interface);
         return;
     };
 
-    const filepath = if (args.len > 2) span(args[2]) else null;
     const input = CollectInput{
         .w = &writer.interface,
         .r = &reader.interface,
         .db = &conn,
     };
+    const ableton_data: ?AbletonData = if (args.len < 3) null else zli.parseOrdered(AbletonData, args[2..], .offset) catch null;
     switch (cmd) {
         .reset => return try lib.database.reset(&conn),
         .scan => {
-            _ = try input.w.print("scanning files please wait..\n", .{});
+            _ = try input.w.print("\rscanning files please wait..\r", .{});
             try input.w.flush();
-            ensurePath(&writer.interface, filepath) catch return;
-            return try lib.database.scanDir(alloc, &conn, filepath.?);
+            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
+            return try lib.database.scanDir(alloc, &conn, ableton_data.?.filepath);
         },
         .check => {
-            ensurePath(&writer.interface, filepath) catch return;
-            try collectAll(&input, filepath.?, .check, .deep);
+            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
+            try collectAll(&input, ableton_data.?.filepath, .check, ableton_data.?.depth);
         },
         .safe => {
-            ensurePath(&writer.interface, filepath) catch return;
-            try collectAll(&input, filepath.?, .safe, .none);
+            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
+            try collectAll(&input, ableton_data.?.filepath, .safe, ableton_data.?.depth);
         },
         .save => {
-            ensurePath(&writer.interface, filepath) catch return;
-            try collectAll(&input, filepath.?, .save, .none);
+            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
+            try collectAll(&input, ableton_data.?.filepath, .save, ableton_data.?.depth);
         },
     }
 }
@@ -118,7 +141,6 @@ pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.Sav
                 .none => {
                     var iter = dir.iterate();
                     // TODO: should arena reset after each collect and save?
-                    defer _ = arena.reset(.free_all);
                     while (try iter.next()) |entry| {
                         switch (entry.kind) {
                             .file => {},
@@ -126,8 +148,8 @@ pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.Sav
                         }
                         if (!lib.checks.validAbleton(entry.name)) continue;
                         const full_path = try std.fs.path.join(alloc, &[_][]const u8{ filepath, entry.name });
-                        defer alloc.free(full_path);
 
+                        defer _ = arena.reset(.free_all);
                         collectSet(alloc, input, full_path, cmd) catch continue;
                     }
                 },
@@ -152,7 +174,7 @@ pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.Sav
     }
 }
 
-fn ensurePath(w: *Writer, filepath: ?[]const u8) !void {
+fn ensureNotNull(comptime T: type, w: *Writer, filepath: ?T) !void {
     if (filepath == null) {
         _ = try w.print("{s}please provide a folder or file {s}\n", .{
             Color.red.code(),

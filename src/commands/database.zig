@@ -71,8 +71,10 @@ pub fn scanDir(alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void
         try stmt.bindParam(2, fullpath);
         try stmt.bindParam(3, stat.size);
         _ = try stmt.exec();
-        inserted += 1;
+        if (conn.numChanges() > 0) {
+            inserted += 1;
+        }
     }
     try conn.closeTransaction(true);
-    std.log.info("inserted {d} new files", .{inserted});
+    std.debug.print("success: inserted {d} new files", .{inserted});
 }

@@ -33,12 +33,12 @@
     // internet connectivity.
     .dependencies = .{
         .zli = .{
-            .url = "git+https://github.com/arod1213/zli.git#6f27174bb3a51a7c187b7f641058010b24b7dc26",
-            .hash = "zli-0.0.0-jFqMJuFGAAAaUO3Y2s2yITZ4LSLA7vzloQSglHjRgm5J",
+            .url = "git+https://github.com/arod1213/zli.git#3d8808a7bea926e381e5789d5e2dc477590a9522",
+            .hash = "zli-0.0.0-jFqMJo1HAACP338WeBY1AJ8qhHDANM3f6rzQM3HHHbpl",
         },
         .sqlzig = .{
-            .url = "git+https://github.com/arod1213/sqlzig.git#443bbb1bfee13e23bcd18f269e91e0054e3bf386",
-            .hash = "sqlzig-0.0.0-TWhuvGwCmACkWrGTO5sroQJnjoSAwlwo6J77KjKpFKhd",
+            .url = "git+https://github.com/arod1213/sqlzig.git#706041004d17e01c4379a0453fa32611553f3c59",
+            .hash = "sqlzig-0.0.0-TWhuvOcCmAA5RHN4S0srxpCl6mol7PyhS2YFnjvQDgCK",
         },
     },
     .paths = .{
