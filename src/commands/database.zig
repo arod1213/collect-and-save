@@ -39,9 +39,11 @@ pub fn scanDir(alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void
         try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
 
     var iter = try dir.walk(alloc);
+    defer iter.deinit();
     try conn.beginTransaction();
     errdefer conn.closeTransaction(false) catch {};
 
+    var inserted: usize = 0;
     const sql = "INSERT INTO files (filename, full_path, size) VALUES (?, ?, ?) ON CONFLICT DO NOTHING";
     const stmt = try sqlite.Statement.init(conn, sql);
     defer stmt.close() catch {};
@@ -52,7 +54,10 @@ pub fn scanDir(alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void
             },
             else => continue,
         }
-        var file = entry.dir.openFile(entry.path, .{}) catch continue;
+        var file = dir.openFile(entry.path, .{}) catch |e| {
+            std.log.err("failed to open file {s}: {any}", .{ entry.path, e });
+            continue;
+        };
         defer file.close();
         const stat = try file.stat();
 
@@ -66,6 +71,8 @@ pub fn scanDir(alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void
         try stmt.bindParam(2, fullpath);
         try stmt.bindParam(3, stat.size);
         _ = try stmt.exec();
+        inserted += 1;
     }
     try conn.closeTransaction(true);
+    std.log.info("inserted {d} new files", .{inserted});
 }

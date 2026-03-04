@@ -16,19 +16,17 @@ const Doc = xml.Doc;
 const ableton = @import("ableton.zig");
 const PathType = ableton.PathType;
 
-pub const Command = enum { save, xml, check, info, safe, setup };
-
+pub const SaveCommand = enum { info, xml, check, save, safe };
 const CollectFileConfig = struct {
     reader: *std.Io.Reader,
     writer: *std.Io.Writer,
-    cmd: Command,
+    cmd: SaveCommand,
     session_dir: std.fs.Dir,
 };
 
 fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileConfig) !void {
     const sample_path = file.file_path;
     switch (config.cmd) {
-        .setup => {},
         .check => {
             const collectable = ableton.shouldCollect(alloc, config.session_dir, file.path_type, sample_path);
             if (!collectable) return error.FileAlreadyFound;
@@ -75,7 +73,7 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, config: Colle
     }
 }
 
-pub fn collectAndSave(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: Command) !void {
+pub fn collectAndSave(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: SaveCommand) !void {
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
     _ = try utils.writeGzipToTmp(alloc, tmp_name, filepath);
     defer std.fs.cwd().deleteFile(tmp_name) catch {};

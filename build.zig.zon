@@ -37,8 +37,8 @@
             .hash = "zli-0.0.0-jFqMJuFGAAAaUO3Y2s2yITZ4LSLA7vzloQSglHjRgm5J",
         },
         .sqlzig = .{
-            .url = "git+https://github.com/arod1213/sqlzig.git#138bacd8a1550bbbe59af36172be2acc4f382699",
-            .hash = "sqlzig-0.0.0-TWhuvAMCmABE0BRf-qD8DUmRvkUlnTfaKCRaiJObLLAN",
+            .url = "git+https://github.com/arod1213/sqlzig.git#443bbb1bfee13e23bcd18f269e91e0054e3bf386",
+            .hash = "sqlzig-0.0.0-TWhuvGwCmACkWrGTO5sroQJnjoSAwlwo6J77KjKpFKhd",
         },
     },
     .paths = .{

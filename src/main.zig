@@ -1,56 +1,16 @@
 const std = @import("std");
+const span = std.mem.span;
 const Allocator = std.mem.Allocator;
-const print = std.debug.print;
+const Writer = std.Io.Writer;
+const Reader = std.Io.Reader;
+
 const lib = @import("collect_and_save");
+const Color = lib.Color;
 const zli = @import("zli");
 const termios = @import("termios.zig");
-const Color = lib.Color;
 
-const Command = lib.Command;
-fn commandInfo(w: *std.Io.Writer) !void {
-    _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
-    const info = @typeInfo(Command);
-
-    inline for (info.@"enum".fields) |field| {
-        _ = try w.print("\t{s}", .{field.name});
-    }
-    _ = try w.write("\n");
-    try w.flush();
-
-    return;
-}
-
-fn collectSet(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
-    if (!lib.checks.validAbleton(filepath)) {
-        _ = try writer.print("{s}{s} is not a valid ableton file{s}\n", .{ Color.red.code(), std.fs.path.basename(filepath), Color.reset.code() });
-        try writer.flush();
-        return;
-    }
-
-    if (lib.checks.isBackup(filepath)) {
-        _ = try writer.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
-        try writer.flush();
-        return;
-    }
-
-    switch (cmd.*) {
-        .xml => {
-            var file = try std.fs.cwd().openFile(filepath, .{});
-            defer file.close();
-            try lib.gzip.writeXml(&file, writer);
-        },
-        .save, .check, .info, .safe => try lib.collectAndSave(alloc, reader, writer, filepath, cmd.*),
-        .setup => {},
-    }
-}
-
-pub const Depth = enum { default, deep };
-const Input = struct {
-    cmd: Command,
-    filepath: []const u8,
-    depth: Depth = .default,
-};
-
+const Depth = enum { none, deep };
+const Command = enum { check, safe, save, scan, reset };
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{ .verbose_log = false }){};
     var arena = std.heap.ArenaAllocator.init(gpa.allocator());
@@ -70,81 +30,102 @@ pub fn main() !void {
     var conn = try lib.database.setup("test.db");
     defer conn.deinit();
 
-    const input = blk: {
-        if (stdin.isTty()) {
-            termios.setup(stdin.handle) catch {
-                std.log.err("failed to setup termios", .{});
-            };
-            defer _ = termios.restore(stdin.handle) catch {};
-
-            break :blk zli.parseOrdered(Input, std.os.argv) catch {
-                _ = try writer.interface.print("{s}please provide a command and a file{s}\n", .{ Color.red.code(), Color.reset.code() });
-                try writer.interface.flush();
-                try commandInfo(&writer.interface);
-                return;
-            };
-        } else {
-            const pipe_input = zli.parseOrdered(struct { cmd: Command, depth: Depth = .default }, std.os.argv) catch {
-                try commandInfo(&writer.interface);
-                return;
-            };
-
-            const filepath = reader.interface.takeDelimiter('\n') catch return orelse " ";
-            const trimmed = std.mem.trimRight(u8, filepath, "\r\n");
-
-            if (pipe_input.cmd == .safe) {
-                try writer.interface.print("{s}safe mode is not allowed when piping input in{s}\n", .{ Color.red.code(), Color.reset.code() });
-                try writer.interface.flush();
-                return;
-            }
-
-            break :blk Input{
-                .filepath = trimmed,
-                .cmd = pipe_input.cmd,
-            };
-        }
+    termios.setup(stdin.handle) catch {
+        std.log.err("failed to setup termios", .{});
     };
+    defer _ = termios.restore(stdin.handle) catch {};
 
-    const stat = std.fs.cwd().statFile(input.filepath) catch {
-        try writer.interface.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), input.filepath, Color.reset.code() });
+    const args = std.os.argv;
+    const cmd = std.meta.stringToEnum(Command, std.mem.span(args[1])) orelse {
+        _ = try writer.interface.print("{s}please provide a command {s}\n", .{ Color.red.code(), Color.reset.code() });
         try writer.interface.flush();
         return;
     };
-    switch (stat.kind) {
-        .file => collectSet(alloc, &reader.interface, &writer.interface, input.filepath, &input.cmd) catch {
-            try writer.interface.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), input.filepath, Color.reset.code() });
-            try writer.interface.flush();
-            return;
-        },
-        .directory => {
-            var dir = if (std.fs.path.isAbsolute(input.filepath))
-                try std.fs.openDirAbsolute(input.filepath, .{ .iterate = true })
-            else
-                try std.fs.cwd().openDir(input.filepath, .{ .iterate = true });
-            defer dir.close();
 
-            switch (input.cmd) {
-                .setup => {
-                    try lib.database.scanDir(alloc, &conn, input.filepath);
-                    return;
-                },
-                else => {},
+    const filepath = if (args.len > 2) span(args[2]) else null;
+    switch (cmd) {
+        .reset => return try lib.database.reset(&conn),
+        .scan => {
+            if (filepath == null) {
+                _ = try writer.interface.print("{s}please provide a folder {s}\n", .{
+                    Color.red.code(),
+                    Color.reset.code(),
+                });
+                try writer.interface.flush();
+                return;
             }
-            switch (input.depth) {
-                .default => {
+            return try lib.database.scanDir(alloc, &conn, filepath.?);
+        },
+        .check => {
+            if (filepath == null) {
+                _ = try writer.interface.print("{s}please provide a folder or file {s}\n", .{
+                    Color.red.code(),
+                    Color.reset.code(),
+                });
+                try writer.interface.flush();
+                return;
+            }
+            try collectAll(&reader.interface, &writer.interface, filepath.?, .check, .deep);
+        },
+        .safe => {
+            if (filepath == null) {
+                _ = try writer.interface.print("{s}please provide a folder or file {s}\n", .{
+                    Color.red.code(),
+                    Color.reset.code(),
+                });
+                try writer.interface.flush();
+                return;
+            }
+            try collectAll(&reader.interface, &writer.interface, filepath.?, .safe, .none);
+        },
+        .save => {
+            if (filepath == null) {
+                _ = try writer.interface.print("{s}please provide a folder or file {s}\n", .{
+                    Color.red.code(),
+                    Color.reset.code(),
+                });
+                try writer.interface.flush();
+                return;
+            }
+            try collectAll(&reader.interface, &writer.interface, filepath.?, .save, .none);
+        },
+    }
+}
+
+pub fn collectAll(r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
+    const stat = std.fs.cwd().statFile(filepath) catch {
+        try w.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), filepath, Color.reset.code() });
+        try w.flush();
+        return;
+    };
+
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    switch (stat.kind) {
+        .file => try collectSet(alloc, r, w, filepath, cmd),
+        .directory => {
+            var dir = if (std.fs.path.isAbsolute(filepath))
+                try std.fs.openDirAbsolute(filepath, .{ .iterate = true })
+            else
+                try std.fs.cwd().openDir(filepath, .{ .iterate = true });
+            defer dir.close();
+            switch (mode) {
+                .deep => {
                     var iter = dir.iterate();
                     while (try iter.next()) |entry| {
                         switch (entry.kind) {
                             .file => {},
                             else => continue,
                         }
-                        const full_path = try std.fs.path.join(alloc, &[_][]const u8{ input.filepath, entry.name });
+                        const full_path = try std.fs.path.join(alloc, &[_][]const u8{ filepath, entry.name });
                         defer alloc.free(full_path);
-                        defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectIfValid(alloc, &reader.interface, &writer.interface, full_path, &input.cmd) catch continue;
+
+                        // defer _ = arena.reset(.free_all); // free main arena if collecting set
+                        collectSet(alloc, r, w, filepath, cmd) catch continue;
                     }
                 },
-                .deep => {
+                .none => {
                     var iter = try dir.walk(std.heap.page_allocator);
                     defer iter.deinit();
 
@@ -156,24 +137,29 @@ pub fn main() !void {
                         if (!lib.checks.validAbleton(entry.basename)) continue;
 
                         defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectIfValid(alloc, &reader.interface, &writer.interface, entry.path, &input.cmd) catch continue;
+                        collectSet(alloc, r, w, filepath, cmd) catch continue;
                     }
                 },
             }
         },
-        else => {
-            _ = try writer.interface.print("{s}unsupported file type{s}\n", .{ Color.red.code(), Color.reset.code() });
-            try writer.interface.flush();
-        },
+        else => {},
     }
 }
 
-pub fn collectIfValid(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: *const Command) !void {
-    if (!lib.checks.validAbleton(filepath)) return error.Invalid;
+fn collectSet(alloc: Allocator, r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCommand) !void {
+    defer w.flush() catch {};
+    if (!lib.checks.validAbleton(filepath)) {
+        _ = try w.print("{s}{s} is not a valid ableton file{s}\n", .{
+            Color.red.code(),
+            std.fs.path.basename(filepath),
+            Color.reset.code(),
+        });
+        return;
+    }
 
-    collectSet(alloc, reader, writer, filepath, cmd) catch |e| {
-        try writer.print("{s}failed to collect set: {s}{s}\n", .{ Color.red.code(), Color.reset.code(), filepath });
-        try writer.flush();
-        return e;
-    };
+    if (lib.checks.isBackup(filepath)) {
+        _ = try w.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
+        return;
+    }
+    try lib.collectAndSave(alloc, r, w, filepath, cmd);
 }
