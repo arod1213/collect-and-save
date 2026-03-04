@@ -31,6 +31,7 @@ const Command = enum {
     check, // safe <file/folder> <depth>
     safe, // safe <file/folder> <depth>
     save, // save <file/folder> <depth>
+    xml, // xml <file>
     // db
     scan, // scan <folder>
     reset, // reset
@@ -108,6 +109,12 @@ pub fn main() !void {
         .save => {
             ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
             try collectAll(&input, ableton_data.?.filepath, .save, ableton_data.?.depth);
+        },
+        .xml => {
+            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
+            var file = try lib.utils.openFile(ableton_data.?.filepath, .{});
+            defer file.close();
+            try lib.gzip.writeXml(&file, &writer.interface);
         },
     }
 }
