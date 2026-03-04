@@ -22,11 +22,11 @@ pub const File = struct {
     size: u64,
 };
 
-pub fn findMatch(conn: *sqlite.Conn, filename: []const u8, size: u64) !?File {
+pub fn findMatch(conn: *sqlite.Conn, basename: []const u8, size: u64) !?File {
     const sql = "SELECT filename, full_path, size FROM files WHERE filename = @name AND size = @size LIMIT 1";
     const stmt = try sqlite.Statement.init(conn, sql);
     defer stmt.close() catch {};
-    try stmt.bindParam(1, filename);
+    try stmt.bindParam(1, basename);
     try stmt.bindParam(2, size);
     _ = try stmt.exec();
     return stmt.readStruct(File) catch null;

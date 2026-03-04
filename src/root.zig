@@ -9,6 +9,7 @@ pub const checks = @import("./checks.zig");
 pub const xml = @import("xml");
 pub const utils = @import("root_utils.zig");
 pub const database = @import("./commands/database.zig");
+const sqlite = @import("sqlite");
 
 const Node = xml.Node;
 const Doc = xml.Doc;
@@ -22,6 +23,7 @@ const CollectFileConfig = struct {
     writer: *std.Io.Writer,
     cmd: SaveCommand,
     session_dir: std.fs.Dir,
+    db: *sqlite.Conn,
 };
 
 fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileConfig) !void {
@@ -30,7 +32,13 @@ fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileC
         .check => {
             const collectable = ableton.shouldCollect(alloc, config.session_dir, file.path_type, sample_path);
             if (!collectable) return error.FileAlreadyFound;
-            const exists = checks.fileExists(sample_path);
+            var exists = checks.fileExists(sample_path);
+            if (!exists) {
+                const match = try database.findMatch(config.db, file.file_name, file.file_size);
+                if (match != null) {
+                    exists = true;
+                }
+            }
             utils.writeFileInfo(sample_path, "would save", exists);
         },
         .save => {
@@ -73,7 +81,7 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, config: Colle
     }
 }
 
-pub fn collectAndSave(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.Writer, filepath: []const u8, cmd: SaveCommand) !void {
+pub fn collectAndSave(alloc: Allocator, conn: *sqlite.Conn, r: *std.Io.Reader, w: *std.Io.Writer, filepath: []const u8, cmd: SaveCommand) !void {
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
     _ = try utils.writeGzipToTmp(alloc, tmp_name, filepath);
     defer std.fs.cwd().deleteFile(tmp_name) catch {};
@@ -86,14 +94,15 @@ pub fn collectAndSave(alloc: Allocator, reader: *std.Io.Reader, writer: *std.Io.
     defer session_dir.close();
 
     const ableton_version = try utils.getAbletonVersion(alloc, &doc);
-    try writer.print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
-    try writer.flush();
+    try w.print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
+    try w.flush();
 
     const config = CollectFileConfig{
-        .reader = reader,
-        .writer = writer,
+        .reader = r,
+        .writer = w,
         .session_dir = session_dir,
         .cmd = cmd,
+        .db = conn,
     };
     switch (ableton_version) {
         .nine, .ten => {

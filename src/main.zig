@@ -4,6 +4,7 @@ const Allocator = std.mem.Allocator;
 const Writer = std.Io.Writer;
 const Reader = std.Io.Reader;
 
+const sqlite = @import("sqlite");
 const lib = @import("collect_and_save");
 const Color = lib.Color;
 const zli = @import("zli");
@@ -46,37 +47,16 @@ pub fn main() !void {
     switch (cmd) {
         .reset => return try lib.database.reset(&conn),
         .scan => {
-            if (filepath == null) {
-                _ = try writer.interface.print("{s}please provide a folder {s}\n", .{
-                    Color.red.code(),
-                    Color.reset.code(),
-                });
-                try writer.interface.flush();
-                return;
-            }
+            ensurePath(&writer.interface, filepath) catch return;
             return try lib.database.scanDir(alloc, &conn, filepath.?);
         },
         .check => {
-            if (filepath == null) {
-                _ = try writer.interface.print("{s}please provide a folder or file {s}\n", .{
-                    Color.red.code(),
-                    Color.reset.code(),
-                });
-                try writer.interface.flush();
-                return;
-            }
-            try collectAll(&reader.interface, &writer.interface, filepath.?, .check, .deep);
+            ensurePath(&writer.interface, filepath) catch return;
+            try collectAll(&conn, &reader.interface, &writer.interface, filepath.?, .check, .deep);
         },
         .safe => {
-            if (filepath == null) {
-                _ = try writer.interface.print("{s}please provide a folder or file {s}\n", .{
-                    Color.red.code(),
-                    Color.reset.code(),
-                });
-                try writer.interface.flush();
-                return;
-            }
-            try collectAll(&reader.interface, &writer.interface, filepath.?, .safe, .none);
+            ensurePath(&writer.interface, filepath) catch return;
+            try collectAll(&conn, &reader.interface, &writer.interface, filepath.?, .safe, .none);
         },
         .save => {
             if (filepath == null) {
@@ -87,12 +67,12 @@ pub fn main() !void {
                 try writer.interface.flush();
                 return;
             }
-            try collectAll(&reader.interface, &writer.interface, filepath.?, .save, .none);
+            try collectAll(&conn, &reader.interface, &writer.interface, filepath.?, .save, .none);
         },
     }
 }
 
-pub fn collectAll(r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
+pub fn collectAll(conn: *sqlite.Conn, r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
     const stat = std.fs.cwd().statFile(filepath) catch {
         try w.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), filepath, Color.reset.code() });
         try w.flush();
@@ -103,26 +83,29 @@ pub fn collectAll(r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCom
     defer arena.deinit();
     const alloc = arena.allocator();
     switch (stat.kind) {
-        .file => try collectSet(alloc, r, w, filepath, cmd),
+        .file => try collectSet(alloc, conn, r, w, filepath, cmd),
         .directory => {
             var dir = if (std.fs.path.isAbsolute(filepath))
                 try std.fs.openDirAbsolute(filepath, .{ .iterate = true })
             else
                 try std.fs.cwd().openDir(filepath, .{ .iterate = true });
             defer dir.close();
+
             switch (mode) {
                 .deep => {
                     var iter = dir.iterate();
+                    // TODO: should arena reset after each collect and save?
+                    defer _ = arena.reset(.free_all);
                     while (try iter.next()) |entry| {
                         switch (entry.kind) {
                             .file => {},
                             else => continue,
                         }
+                        std.log.info("looking at {s}", .{entry.name});
                         const full_path = try std.fs.path.join(alloc, &[_][]const u8{ filepath, entry.name });
                         defer alloc.free(full_path);
 
-                        // defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectSet(alloc, r, w, filepath, cmd) catch continue;
+                        collectSet(alloc, conn, r, w, full_path, cmd) catch continue;
                     }
                 },
                 .none => {
@@ -137,7 +120,7 @@ pub fn collectAll(r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCom
                         if (!lib.checks.validAbleton(entry.basename)) continue;
 
                         defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectSet(alloc, r, w, filepath, cmd) catch continue;
+                        collectSet(alloc, conn, r, w, filepath, cmd) catch continue;
                     }
                 },
             }
@@ -146,7 +129,19 @@ pub fn collectAll(r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCom
     }
 }
 
-fn collectSet(alloc: Allocator, r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCommand) !void {
+fn ensurePath(w: *Writer, filepath: ?[]const u8) !void {
+    if (filepath == null) {
+        _ = try w.print("{s}please provide a folder or file {s}\n", .{
+            Color.red.code(),
+            Color.reset.code(),
+        });
+        try w.flush();
+        return error.NoFilepath;
+    }
+    return;
+}
+
+fn collectSet(alloc: Allocator, conn: *sqlite.Conn, r: *Reader, w: *Writer, filepath: []const u8, cmd: lib.SaveCommand) !void {
     defer w.flush() catch {};
     if (!lib.checks.validAbleton(filepath)) {
         _ = try w.print("{s}{s} is not a valid ableton file{s}\n", .{
@@ -161,5 +156,5 @@ fn collectSet(alloc: Allocator, r: *Reader, w: *Writer, filepath: []const u8, cm
         _ = try w.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
         return;
     }
-    try lib.collectAndSave(alloc, r, w, filepath, cmd);
+    try lib.collectAndSave(alloc, conn, r, w, filepath, cmd);
 }

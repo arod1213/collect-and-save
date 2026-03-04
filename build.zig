@@ -63,6 +63,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .imports = &.{
+                .{ .name = "sqlite", .module = sqlite },
                 .{ .name = "zli", .module = zli },
                 .{ .name = "collect_and_save", .module = mod },
             },
