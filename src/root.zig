@@ -36,7 +36,6 @@ fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileC
             if (!exists) {
                 const match = try database.findMatch(config.db, file.file_name, file.file_size);
                 if (match != null) {
-                    std.log.info("WE FOUND A DB MATCH ", .{});
                     exists = true;
                 }
             }
@@ -48,8 +47,13 @@ fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileC
 
             const prefix = "saved";
             utils.resolveFile(alloc, config.session_dir, sample_path) catch |e| {
-                utils.writeFileInfo(sample_path, prefix, false);
-                return e;
+                const match = try database.findMatch(config.db, file.file_name, file.file_size);
+                if (match) |m| {
+                    try utils.resolveFile(alloc, config.session_dir, m.full_path);
+                } else {
+                    utils.writeFileInfo(sample_path, prefix, false);
+                    return e;
+                }
             };
             utils.writeFileInfo(sample_path, prefix, true);
         },
