@@ -10,6 +10,7 @@ proj 2/
 proj 3/
 *.xml
 *.als
+*.db
 
 dist/
 installer.sh
