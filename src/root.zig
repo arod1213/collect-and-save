@@ -36,6 +36,7 @@ fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileC
             if (!exists) {
                 const match = try database.findMatch(config.db, file.file_name, file.file_size);
                 if (match != null) {
+                    std.log.info("WE FOUND A DB MATCH ", .{});
                     exists = true;
                 }
             }

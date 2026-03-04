@@ -20,6 +20,7 @@ pub fn fileExists(filepath: []const u8) bool {
 
 pub fn validAbleton(filepath: []const u8) bool {
     const ext = std.fs.path.extension(filepath);
+    if (ext.len == 0) return false;
     return std.mem.eql(u8, ext, ".als");
 }
 

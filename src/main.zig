@@ -10,6 +10,20 @@ const Color = lib.Color;
 const zli = @import("zli");
 const termios = @import("termios.zig");
 
+pub fn installPath(alloc: Allocator) ![]const u8 {
+    const home = std.posix.getenv("HOME") orelse return error.NoHomeDir;
+    const path = try std.fs.path.join(alloc, &[_][]const u8{ home, "Documents/CollectAndSave" });
+
+    std.log.info("install path is {s}", .{path});
+    _ = std.fs.makeDirAbsolute(path) catch |e| {
+        switch (e) {
+            error.PathAlreadyExists => {},
+            else => return e,
+        }
+    };
+    return path;
+}
+
 const Depth = enum { none, deep };
 const Command = enum { check, safe, save, scan, reset };
 pub fn main() !void {
@@ -28,7 +42,10 @@ pub fn main() !void {
     var in_buffer: [4096]u8 = undefined;
     var reader = stdin.reader(&in_buffer);
 
-    var conn = try lib.database.setup("test.db");
+    const install_path = try installPath(alloc);
+    const db_path = try std.fs.path.join(alloc, &[_][]const u8{ install_path, "test.db" });
+
+    var conn = try lib.database.setup(db_path);
     defer conn.deinit();
 
     termios.setup(stdin.handle) catch {
@@ -98,7 +115,7 @@ pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.Sav
             defer dir.close();
 
             switch (mode) {
-                .deep => {
+                .none => {
                     var iter = dir.iterate();
                     // TODO: should arena reset after each collect and save?
                     defer _ = arena.reset(.free_all);
@@ -107,14 +124,14 @@ pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.Sav
                             .file => {},
                             else => continue,
                         }
-                        std.log.info("looking at {s}", .{entry.name});
+                        if (!lib.checks.validAbleton(entry.name)) continue;
                         const full_path = try std.fs.path.join(alloc, &[_][]const u8{ filepath, entry.name });
                         defer alloc.free(full_path);
 
                         collectSet(alloc, input, full_path, cmd) catch continue;
                     }
                 },
-                .none => {
+                .deep => {
                     var iter = try dir.walk(std.heap.page_allocator);
                     defer iter.deinit();
 
@@ -126,7 +143,7 @@ pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.Sav
                         if (!lib.checks.validAbleton(entry.basename)) continue;
 
                         defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectSet(alloc, input, filepath, cmd) catch continue;
+                        collectSet(alloc, input, entry.path, cmd) catch continue;
                     }
                 },
             }
