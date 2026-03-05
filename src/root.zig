@@ -1,20 +1,23 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
-const collect = @import("./collect.zig");
 pub const Color = @import("ascii.zig").Color;
 
-pub const gzip = @import("gzip.zig");
-pub const checks = @import("./checks.zig");
-pub const xml = @import("xml");
-pub const utils = @import("root_utils.zig");
-pub const database = @import("./commands/database.zig");
 const sqlite = @import("sqlite");
+pub const database = @import("./commands/database.zig");
 
-const Node = xml.Node;
-const Doc = xml.Doc;
+const lib = @import("lib/main.zig");
+const commands = lib.commands;
+const collect = lib.collect;
+pub const gzip = lib.gzip;
+pub const checks = lib.checks;
+pub const xml = lib.xml;
+// pub const utils = @import("root_utils.zig");
 
-const ableton = @import("ableton.zig");
+const Node = xml.types.Node;
+const Doc = xml.types.Doc;
+
+const ableton = lib.ableton;
 const PathType = ableton.PathType;
 
 pub const SaveCommand = enum { info, xml, check, save, safe };
@@ -25,6 +28,13 @@ const CollectFileConfig = struct {
     session_dir: std.fs.Dir,
     db: *sqlite.Conn,
 };
+
+pub fn openFile(path: []const u8, flags: std.fs.File.OpenFlags) !std.fs.File {
+    if (std.fs.path.isAbsolute(path)) {
+        return try std.fs.openFileAbsolute(path, flags);
+    }
+    return try std.fs.cwd().openFile(path, flags);
+}
 
 fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileConfig) !void {
     const sample_path = file.file_path;
@@ -39,23 +49,23 @@ fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileC
                     exists = true;
                 }
             }
-            utils.writeFileInfo(sample_path, "would save", exists);
+            commands.writeFileInfo(sample_path, "would save", exists);
         },
         .save => {
             const collectable = ableton.shouldCollect(alloc, config.session_dir, file.path_type, sample_path);
             if (!collectable) return error.FileAlreadyFound;
 
             const prefix = "saved";
-            utils.resolveFile(alloc, config.session_dir, sample_path) catch |e| {
+            commands.resolveFile(alloc, config.session_dir, sample_path) catch |e| {
                 const match = try database.findMatch(alloc, config.db, file.file_name, file.file_size);
                 if (match) |m| {
-                    try utils.resolveFile(alloc, config.session_dir, m.full_path);
+                    try commands.resolveFile(alloc, config.session_dir, m.full_path);
                 } else {
-                    utils.writeFileInfo(sample_path, prefix, false);
+                    commands.writeFileInfo(sample_path, prefix, false);
                     return e;
                 }
             };
-            utils.writeFileInfo(sample_path, prefix, true);
+            commands.writeFileInfo(sample_path, prefix, true);
         },
         .info => {
             try config.writer.print("{f}\n", .{file});
@@ -64,14 +74,14 @@ fn collectFile(alloc: Allocator, file: ableton.AbletonFile, config: CollectFileC
         .safe => {
             const collectable = ableton.shouldCollect(alloc, config.session_dir, file.path_type, sample_path);
             if (!collectable) return error.FileAlreadyFound;
-            try utils.collectFileSafe(alloc, config.reader, config.writer, config.session_dir, file);
+            try commands.collectFileSafe(alloc, config.reader, config.writer, config.session_dir, file);
         },
         .xml => {},
     }
 }
 
 fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, config: CollectFileConfig) !void {
-    var map = try xml.getUniqueNodes(T, alloc, head, "FileRef", T.key);
+    var map = try xml.find.getNodesUnique(T, alloc, head, "FileRef", T.key);
     defer map.deinit();
 
     var count: usize = 0;
@@ -88,17 +98,17 @@ fn processFileRefs(comptime T: type, alloc: Allocator, head: Node, config: Colle
 
 pub fn collectAndSave(alloc: Allocator, conn: *sqlite.Conn, r: *std.Io.Reader, w: *std.Io.Writer, filepath: []const u8, cmd: SaveCommand) !void {
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
-    _ = try utils.writeGzipToTmp(alloc, tmp_name, filepath);
+    _ = try commands.writeGzipToTmp(alloc, tmp_name, filepath);
     defer std.fs.cwd().deleteFile(tmp_name) catch {};
 
-    var doc = try xml.Doc.init(tmp_name);
+    var doc = try Doc.init(tmp_name);
     if (doc.root == null) return error.NoRoot;
     defer doc.deinit();
 
     var session_dir = try collect.getSessionDir(filepath);
     defer session_dir.close();
 
-    const ableton_version = try utils.getAbletonVersion(alloc, &doc);
+    const ableton_version = try commands.getAbletonVersion(alloc, &doc);
     try w.print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
     try w.flush();
 

@@ -40,6 +40,10 @@
             .url = "git+https://github.com/arod1213/sqlzig.git#706041004d17e01c4379a0453fa32611553f3c59",
             .hash = "sqlzig-0.0.0-TWhuvOcCmAA5RHN4S0srxpCl6mol7PyhS2YFnjvQDgCK",
         },
+        .zxml = .{
+            .url = "git+https://github.com/arod1213/zxml.git#e01525921dd7fedf846cd67473bcd6ba03e1098a",
+            .hash = "zxml-0.0.0-vPmDfzlUAACubb7rWijoMGXfu3BZuzI9XirXJ1PACH2Q",
+        },
     },
     .paths = .{
         "build.zig",

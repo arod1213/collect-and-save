@@ -5,6 +5,19 @@ ADD interactive shell to ask if user the below
   Would you like to save UserLibrary files?
   Any folders we should look at in case of missing files? (only ask once missing files are found)
 
+Add new command: config 
+Add new command: sync 
+  config: creates sqlite3 database and scans sample library (path, name, size, hash?)
+    also store a parent entity that hold the path
+    file path should be relative to the parent maybe?
+
+  sync: rescans the folder and deletes any missing files
+    used for locating missing samples that may have moved
+    rescan each parent dir and all children
+    maybe blade the db every time?
+    or only delete if we try to find file at location and it doesn't exist
+    when rescanning, always update conflicts to preserve the latest data (file size, etc)
+
 CLI Config setup
     > Config struct {
         ask_mode: per_session, per_audio, none
@@ -14,9 +27,6 @@ CLI Config setup
     add interactive mode
     first run check -> then if accepted collect
   
-! nodesByName should have a ref to the map to deduplicate before ending up in the main func
-  will cut allocations in half if not more
-
 ask for user input before each file is scanned for unique types of scan
   also allow global scan type for all files
 

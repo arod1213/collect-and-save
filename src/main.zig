@@ -83,7 +83,6 @@ pub fn main() !void {
         try enumInfo(Command, &writer.interface);
         return;
     };
-
     const input = CollectInput{
         .w = &writer.interface,
         .r = &reader.interface,
@@ -112,7 +111,7 @@ pub fn main() !void {
         },
         .xml => {
             ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
-            var file = try lib.utils.openFile(ableton_data.?.filepath, .{});
+            var file = try lib.openFile(ableton_data.?.filepath, .{});
             defer file.close();
             try lib.gzip.writeXml(&file, &writer.interface);
         },

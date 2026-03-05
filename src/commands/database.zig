@@ -1,7 +1,9 @@
 const sqlite = @import("sqlite");
 const std = @import("std");
-const collect = @import("../collect.zig");
 const Allocator = std.mem.Allocator;
+
+const lib = @import("../lib/main.zig");
+const collect = lib.collect;
 
 pub fn setup(name: []const u8) !sqlite.Conn {
     var conn = try sqlite.Conn.init(name);
