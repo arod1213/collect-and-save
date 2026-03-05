@@ -147,7 +147,6 @@ pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.Sav
             switch (mode) {
                 .none => {
                     var iter = dir.iterate();
-                    // TODO: should arena reset after each collect and save?
                     while (try iter.next()) |entry| {
                         switch (entry.kind) {
                             .file => {},
@@ -177,7 +176,7 @@ pub fn collectAll(input: *const CollectInput, filepath: []const u8, cmd: lib.Sav
                 },
             }
         },
-        else => {},
+        else => {}, // skip invalid entry types
     }
 }
 
