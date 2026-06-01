@@ -33,16 +33,16 @@
     // internet connectivity.
     .dependencies = .{
         .zli = .{
-            .url = "git+https://github.com/arod1213/zli.git#3d8808a7bea926e381e5789d5e2dc477590a9522",
-            .hash = "zli-0.0.0-jFqMJo1HAACP338WeBY1AJ8qhHDANM3f6rzQM3HHHbpl",
+            .url = "git+https://github.com/arod1213/zli.git#03c579a5b7ba2001abfd45b1f61277fc4928bed7",
+            .hash = "zli-0.0.0-jFqMJtRHAAAbHFQuB1fHzi4MouB09pEsB4B9mJ9n5wXE",
         },
         .sqlzig = .{
             .url = "git+https://github.com/arod1213/sqlzig.git#706041004d17e01c4379a0453fa32611553f3c59",
             .hash = "sqlzig-0.0.0-TWhuvOcCmAA5RHN4S0srxpCl6mol7PyhS2YFnjvQDgCK",
         },
         .zxml = .{
-            .url = "git+https://github.com/arod1213/zxml.git#e01525921dd7fedf846cd67473bcd6ba03e1098a",
-            .hash = "zxml-0.0.0-vPmDfzlUAACubb7rWijoMGXfu3BZuzI9XirXJ1PACH2Q",
+            .url = "git+https://github.com/arod1213/zxml.git#1e6b08fa8e25db466c1e57298af438572121ef1d",
+            .hash = "zxml-0.0.0-vPmDf2JUAAAciLYoFQxQ83HAJ5Rr9WUdBpxy8cfX1kdz",
         },
     },
     .paths = .{
