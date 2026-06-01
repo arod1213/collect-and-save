@@ -38,20 +38,6 @@ const Command = enum {
     reset, // reset
 };
 
-fn enumInfo(comptime T: type, w: *std.Io.Writer) !void {
-    _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
-    const info = @typeInfo(T);
-    assert(info == .@"enum");
-
-    inline for (info.@"enum".fields) |field| {
-        _ = try w.print("\t{s}", .{field.name});
-    }
-    _ = try w.write("\n");
-    try w.flush();
-
-    return;
-}
-
 pub fn main(init: std.process.Init) !void {
     const alloc = init.arena.allocator();
     const io = init.io;
@@ -107,7 +93,7 @@ pub fn main(init: std.process.Init) !void {
                 .save => .save,
                 else => return error.InvalidCmd,
             };
-            try collectAll(io, &input, ableton_data.?.filepath, save_cmd, ableton_data.?.depth);
+            try run(io, &input, ableton_data.?.filepath, save_cmd, ableton_data.?.depth);
         },
         .xml => {
             ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
@@ -124,18 +110,30 @@ const CollectInput = struct {
     db: *sqlite.Conn,
 };
 
-pub fn collectAll(io: std.Io, input: *const CollectInput, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
+pub fn run(io: std.Io, input: *const CollectInput, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
     const stat = Dir.cwd().statFile(io, filepath, .{ .follow_symlinks = false }) catch {
         try input.w.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), filepath, Color.reset.code() });
         try input.w.flush();
         return;
     };
 
+    var session_dir = try lib.collect.getSessionDir(io, filepath);
+    defer session_dir.close(io);
+    var config = lib.CollectFileConfig{
+        .reader = input.r,
+        .writer = input.w,
+        .db = input.db,
+        .session_dir = session_dir,
+        .cmd = cmd,
+    };
+
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
     switch (stat.kind) {
-        .file => try collectSet(io, alloc, input, filepath, cmd),
+        .file => {
+            try lib.verifyAndCollect(io, alloc, &config, filepath);
+        },
         .directory => {
             var dir = if (std.fs.path.isAbsolute(filepath))
                 try Dir.openDirAbsolute(io, filepath, .{ .iterate = true })
@@ -151,11 +149,10 @@ pub fn collectAll(io: std.Io, input: *const CollectInput, filepath: []const u8, 
                             .file => {},
                             else => continue,
                         }
-                        if (!lib.checks.validAbleton(entry.name)) continue;
                         const full_path = try std.fs.path.join(alloc, &[_][]const u8{ filepath, entry.name });
 
                         defer _ = arena.reset(.free_all);
-                        collectSet(io, alloc, input, full_path, cmd) catch continue;
+                        lib.verifyAndCollect(io, alloc, &config, full_path) catch continue;
                     }
                 },
                 .deep => {
@@ -167,10 +164,13 @@ pub fn collectAll(io: std.Io, input: *const CollectInput, filepath: []const u8, 
                             .file => {},
                             else => continue,
                         }
-                        if (!lib.checks.validAbleton(entry.basename)) continue;
+
+                        // reassign session dir to nearest parent folder
+                        session_dir = try lib.collect.getSessionDir(io, entry.path);
+                        config.session_dir = session_dir;
 
                         defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        collectSet(io, alloc, input, entry.path, cmd) catch continue;
+                        lib.verifyAndCollect(io, alloc, &config, entry.path) catch continue;
                     }
                 },
             }
@@ -179,6 +179,9 @@ pub fn collectAll(io: std.Io, input: *const CollectInput, filepath: []const u8, 
     }
 }
 
+// ---------------
+// TEXT RENDERING
+// ---------------
 fn ensureNotNull(comptime T: type, w: *Writer, filepath: ?T) !void {
     if (filepath == null) {
         _ = try w.print("{s}please provide a folder or file {s}\n", .{
@@ -191,29 +194,16 @@ fn ensureNotNull(comptime T: type, w: *Writer, filepath: ?T) !void {
     return;
 }
 
-fn collectSet(io: std.Io, alloc: Allocator, input: *const CollectInput, filepath: []const u8, cmd: lib.SaveCommand) !void {
-    defer input.w.flush() catch {};
-    if (!lib.checks.validAbleton(filepath)) {
-        _ = try input.w.print("{s}{s} is not a valid ableton file{s}\n", .{
-            Color.red.code(),
-            std.fs.path.basename(filepath),
-            Color.reset.code(),
-        });
-        return;
-    }
+fn enumInfo(comptime T: type, w: *std.Io.Writer) !void {
+    _ = try w.print("{s}invalid command:{s}\n", .{ Color.red.code(), Color.reset.code() });
+    const info = @typeInfo(T);
+    assert(info == .@"enum");
 
-    if (lib.checks.isBackup(filepath)) {
-        _ = try input.w.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
-        return;
+    inline for (info.@"enum".fields) |field| {
+        _ = try w.print("\t{s}", .{field.name});
     }
-    var session_dir = try lib.collect.getSessionDir(io, filepath);
-    defer session_dir.close(io);
-    const config = lib.CollectFileConfig{
-        .reader = input.r,
-        .writer = input.w,
-        .cmd = cmd,
-        .db = input.db,
-        .session_dir = session_dir,
-    };
-    try lib.collectAndSave(io, alloc, config, filepath);
+    _ = try w.write("\n");
+    try w.flush();
+
+    return;
 }
