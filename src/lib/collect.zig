@@ -1,11 +1,12 @@
 const std = @import("std");
+const Dir = std.Io.Dir;
 const Allocator = std.mem.Allocator;
 
 // ensure dir was opened with iterate = true
-pub fn fileInDir(alloc: Allocator, dir: std.fs.Dir, filename: []const u8) !bool {
+pub fn fileInDir(io: std.Io, alloc: Allocator, dir: Dir, filename: []const u8) !bool {
     var iter = try dir.walk(alloc);
     defer iter.deinit();
-    while (try iter.next()) |entry| {
+    while (try iter.next(io)) |entry| {
         if (std.mem.eql(u8, @ptrCast(entry.basename), filename)) {
             return true;
         }
@@ -13,13 +14,13 @@ pub fn fileInDir(alloc: Allocator, dir: std.fs.Dir, filename: []const u8) !bool 
     return false;
 }
 
-pub fn getSessionDir(filepath: []const u8) !std.fs.Dir {
+pub fn getSessionDir(io: std.Io, filepath: []const u8) !Dir {
     const dirname = std.fs.path.dirname(filepath) orelse ".";
 
     if (std.fs.path.isAbsolute(filepath)) {
-        return std.fs.openDirAbsolute(dirname, .{ .iterate = true });
+        return Dir.openDirAbsolute(io, dirname, .{ .iterate = true });
     } else {
-        return std.fs.cwd().openDir(dirname, .{ .iterate = true });
+        return Dir.cwd().openDir(io, dirname, .{ .iterate = true });
     }
 }
 

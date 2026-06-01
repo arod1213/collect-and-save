@@ -24,9 +24,9 @@ pub fn unzipXml(alloc: Allocator, file: *std.fs.File) ![]const u8 {
     return try text.toOwnedSlice(alloc);
 }
 
-pub fn writeXml(file: *std.fs.File, w: *std.Io.Writer) !void {
+pub fn writeXml(io: std.Io, file: *std.Io.File, w: *std.Io.Writer) !void {
     var file_buffer: [4096]u8 = undefined;
-    var reader = file.reader(&file_buffer);
+    var reader = file.reader(io, &file_buffer);
 
     var zip_buf: [std.compress.flate.max_window_len]u8 = undefined;
     var decompressor = std.compress.flate.Decompress.init(&reader.interface, .gzip, &zip_buf);
@@ -44,7 +44,7 @@ pub fn writeXml(file: *std.fs.File, w: *std.Io.Writer) !void {
     try w.flush();
 }
 
-pub fn writeChunk(alloc: Allocator, file: *std.fs.File, w: *std.Io.Writer) !void {
+pub fn writeChunk(alloc: Allocator, file: *std.Io.File, w: *std.Io.Writer) !void {
     var text = try std.ArrayList(u8).initCapacity(alloc, 10000);
     defer text.deinit(alloc);
 

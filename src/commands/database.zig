@@ -1,6 +1,7 @@
 const sqlite = @import("sqlite");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const Dir = std.Io.Dir;
 
 const lib = @import("../lib/main.zig");
 const collect = lib.collect;
@@ -39,11 +40,11 @@ pub fn findMatch(alloc: Allocator, conn: *sqlite.Conn, basename: []const u8, siz
     };
 }
 
-pub fn scanDir(alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void {
+pub fn scanDir(io: std.Io, alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void {
     var dir = if (std.fs.path.isAbsolute(dir_path))
-        try std.fs.openDirAbsolute(dir_path, .{ .iterate = true })
+        try std.Io.Dir.openDirAbsolute(io, dir_path, .{ .iterate = true })
     else
-        try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
+        try Dir.cwd().openDir(io, dir_path, .{ .iterate = true });
 
     var iter = try dir.walk(alloc);
     defer iter.deinit();
@@ -54,22 +55,21 @@ pub fn scanDir(alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void
     const sql = "INSERT INTO files (filename, full_path, size) VALUES (?, ?, ?) ON CONFLICT DO NOTHING";
     const stmt = try sqlite.Statement.init(conn, sql);
     defer stmt.close() catch {};
-    while (try iter.next()) |entry| {
+    while (try iter.next(io)) |entry| {
         switch (entry.kind) {
             .file => {
                 if (!collect.validExtension(entry.basename)) continue;
             },
             else => continue,
         }
-        var file = dir.openFile(entry.path, .{}) catch |e| {
+        var file = dir.openFile(io, entry.path, .{}) catch |e| {
             std.log.err("failed to open file {s}: {any}", .{ entry.path, e });
             continue;
         };
-        defer file.close();
-        const stat = try file.stat();
+        defer file.close(io);
+        const stat = try file.stat(io);
 
-        const joined_path = try std.fs.path.resolve(alloc, &[_][]const u8{ dir_path, entry.path });
-        const fullpath = try std.fs.realpathAlloc(alloc, joined_path);
+        const fullpath = try std.fs.path.resolve(alloc, &[_][]const u8{ dir_path, entry.path });
         defer alloc.free(fullpath);
 
         defer stmt.reset() catch {};
