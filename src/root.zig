@@ -157,8 +157,8 @@ pub fn collectFile(io: std.Io, alloc: Allocator, file: ableton.AbletonFile, conf
             if (!collectable) return error.FileAlreadyFound;
             const save = try commands.askToSave(config.reader, config.writer, sample_path);
             if (save) {
-                try saveFile(io, alloc, file, config);
-                commands.writeFileInfo(sample_path, "saved", true);
+                const succeed = saveFile(io, alloc, file, config) catch null;
+                commands.writeFileInfo(sample_path, "saved", succeed != null);
             } else {
                 try config.writer.print("\tskipped\n", .{});
                 try config.writer.flush();
