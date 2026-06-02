@@ -28,12 +28,8 @@ pub export fn checkFile(file: [*c]lib.AbletonFile) FileRes {
             .err = .null_file,
         };
     }
-    // defer std.heap.c_allocator.free(file.*);
-
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-    var t = std.Io.Threaded.init(alloc, .{});
+    const gpa = std.heap.c_allocator;
+    var t = std.Io.Threaded.init(gpa, .{});
     defer t.deinit();
     const io = t.io();
 
@@ -43,10 +39,12 @@ pub export fn checkFile(file: [*c]lib.AbletonFile) FileRes {
     };
     defer session_dir.close(io);
 
-    const res = lib.findFile(io, alloc, file.*, session_dir, null) catch return .{
+    const res = lib.findFile(io, gpa, file.*, session_dir, null) catch return .{
         .state = .collected,
         .err = .not_found,
     };
+    defer gpa.free(res.path);
+
     return .{
         .state = res.status,
         .err = .none,

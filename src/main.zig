@@ -135,9 +135,6 @@ pub fn run(io: std.Io, gpa: Allocator, input: *const CollectInput, filepath: []c
         .cmd = cmd,
     };
 
-    // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    // defer arena.deinit();
-    // const alloc = arena.allocator();
     switch (stat.kind) {
         .file => {
             try lib.verifyAndCollect(io, gpa, &config, filepath);
@@ -160,7 +157,6 @@ pub fn run(io: std.Io, gpa: Allocator, input: *const CollectInput, filepath: []c
                         const full_path = try std.fs.path.join(gpa, &[_][]const u8{ filepath, entry.name });
                         defer gpa.free(full_path);
 
-                        // defer _ = arena.reset(.free_all);
                         lib.verifyAndCollect(io, gpa, &config, full_path) catch continue;
                     }
                 },
@@ -178,7 +174,6 @@ pub fn run(io: std.Io, gpa: Allocator, input: *const CollectInput, filepath: []c
                         session_dir = try lib.collect.getSessionDir(io, entry.path);
                         config.session_dir = session_dir;
 
-                        // defer _ = arena.reset(.free_all); // free main arena if collecting set
                         lib.verifyAndCollect(io, gpa, &config, entry.path) catch continue;
                     }
                 },
