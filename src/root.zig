@@ -23,13 +23,19 @@ const ableton = lib.ableton;
 pub const AbletonFile = ableton.AbletonFile;
 const PathType = ableton.PathType;
 
-pub const SaveCommand = enum(u8) { info, xml, check, save, safe };
+pub const SaveCommand = enum(u8) {
+    check = 0,
+    save,
+    safe,
+    info,
+    xml,
+};
 pub const CollectFileConfig = struct {
     reader: *std.Io.Reader,
     writer: *std.Io.Writer,
     cmd: SaveCommand,
     session_dir: std.Io.Dir,
-    db: *sqlite.Conn,
+    db: ?*sqlite.Conn,
 };
 
 /// TUI Input for Collect And Save
@@ -182,7 +188,8 @@ pub fn collectFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, config
 fn saveFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, config: *const CollectFileConfig) !void {
     const sample_path = file.file_path;
     commands.resolveFile(io, gpa, config.session_dir, sample_path) catch |e| {
-        const match = try database.findMatch(gpa, config.db, file.file_name, file.file_size);
+        if (config.db == null) return e;
+        const match = try database.findMatch(gpa, config.db.?, file.file_name, file.file_size);
         if (match) |m| {
             defer m.deinit(gpa);
             try commands.resolveFile(io, gpa, config.session_dir, m.full_path);

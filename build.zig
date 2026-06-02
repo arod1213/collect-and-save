@@ -86,6 +86,7 @@ pub fn build(b: *std.Build) void {
     const c_lib = b.addLibrary(.{
         .name = "collectnsave",
         .root_module = c_mod,
+        .linkage = .dynamic,
     });
     const lib_step = b.step("lib", "Build lib");
     lib_step.dependOn(&c_lib.step);

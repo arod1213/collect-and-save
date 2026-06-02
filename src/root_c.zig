@@ -14,39 +14,94 @@ const termios = @import("termios.zig");
 
 const std = @import("std");
 
-pub const FileErr = enum(u8) { none = 0, no_dir, not_found, null_file };
-pub const FileRes = extern struct {
-    state: FileState,
-    err: FileErr,
-};
+pub export fn collectable_files(filepath: [*c]const u8) !void {
+    if (filepath == null) {
+        return .OK;
+    }
 
-// EXPORTS
-pub export fn checkFile(file: [*c]lib.AbletonFile) FileRes {
+    const gpa = std.heap.c_allocator;
+
+    // returns a list of all collectable samples
+}
+
+pub export fn save_file(file: [*c]lib.AbletonFile, dry_run: bool) CollectRes {
     if (file == null) {
-        return .{
-            .state = .collected,
-            .err = .null_file,
-        };
+        return .BAD_FILE;
     }
     const gpa = std.heap.c_allocator;
     var t = std.Io.Threaded.init(gpa, .{});
     defer t.deinit();
     const io = t.io();
 
-    var session_dir = lib.collect.getSessionDir(io, file.*.file_path) catch return .{
-        .state = .collected,
-        .err = .no_dir,
-    };
+    var stdout = std.Io.File.stdout();
+    defer stdout.close(io);
+    var out_buffer: [4096]u8 = undefined;
+    var writer = stdout.writer(io, &out_buffer);
+
+    var stdin = std.Io.File.stdin();
+    defer stdin.close(io);
+    var in_buffer: [4096]u8 = undefined;
+    var reader = stdin.reader(io, &in_buffer);
+
+    var session_dir = lib.collect.getSessionDir(io, file.*.file_path) catch return .BAD_FILE;
     defer session_dir.close(io);
 
-    const res = lib.findFile(io, gpa, file.*, session_dir, null) catch return .{
-        .state = .collected,
-        .err = .not_found,
+    const config = lib.CollectFileConfig{
+        .reader = &reader.interface,
+        .writer = &writer.interface,
+        .session_dir = session_dir,
+        .db = null,
+        .cmd = cmd,
     };
-    defer gpa.free(res.path);
 
-    return .{
-        .state = res.status,
-        .err = .none,
+    lib.collectFile(io, gpa, file.*, config) catch return .FAIL_COLLECT;
+    return .OK;
+}
+
+pub export fn is_backup(filepath: [*c]const u8) bool {
+    if (filepath == null) {
+        return .OK;
+    }
+    const gpa = std.heap.c_allocator;
+    const path = gpa.dupeZ(u8, std.mem.span(filepath)) catch return .BAD_FILE;
+    defer gpa.free(path);
+    return lib.checks.isBackup(path);
+}
+
+pub const CollectRes = enum(u8) { OK, BAD_FILE, FAIL_COLLECT, IS_BACKUP };
+pub export fn collect_set(filepath: [*c]const u8, cmd: lib.SaveCommand) CollectRes {
+    if (filepath == null) {
+        return .OK;
+    }
+
+    const gpa = std.heap.c_allocator;
+    var t = std.Io.Threaded.init(gpa, .{});
+    defer t.deinit();
+    const io = t.io();
+
+    const path = gpa.dupeZ(u8, std.mem.span(filepath)) catch return .BAD_FILE;
+    defer gpa.free(path);
+
+    var session_dir = lib.collect.getSessionDir(io, path) catch return .BAD_FILE;
+    defer session_dir.close(io);
+
+    var stdout = std.Io.File.stdout();
+    defer stdout.close(io);
+    var out_buffer: [4096]u8 = undefined;
+    var writer = stdout.writer(io, &out_buffer);
+
+    var stdin = std.Io.File.stdin();
+    defer stdin.close(io);
+    var in_buffer: [4096]u8 = undefined;
+    var reader = stdin.reader(io, &in_buffer);
+
+    const config = lib.CollectFileConfig{
+        .reader = &reader.interface,
+        .writer = &writer.interface,
+        .session_dir = session_dir,
+        .db = null,
+        .cmd = cmd,
     };
+    lib.collectSet(io, gpa, &config, path) catch return .FAIL_COLLECT;
+    return .OK;
 }
