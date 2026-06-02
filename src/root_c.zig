@@ -206,19 +206,15 @@ fn cns_collect_set_inner(io: std.Io, gpa: Allocator, path: []const u8, cmd: lib.
     var session_dir = try lib.collect.getSessionDir(io, path);
     defer session_dir.close(io);
 
-    var stdout = std.Io.File.stdout();
-    defer stdout.close(io);
     var out_buffer: [4096]u8 = undefined;
-    var writer = stdout.writer(io, &out_buffer);
+    var discarding = std.Io.Writer.Discarding.init(&out_buffer);
 
-    var stdin = std.Io.File.stdin();
-    defer stdin.close(io);
     var in_buffer: [4096]u8 = undefined;
-    var reader = stdin.reader(io, &in_buffer);
+    var reader = std.Io.Reader.fixed(&in_buffer);
 
     const config = lib.CollectFileConfig{
-        .reader = &reader.interface,
-        .writer = &writer.interface,
+        .reader = &reader,
+        .writer = &discarding.writer,
         .session_dir = session_dir,
         .db = null,
         .cmd = cmd,
