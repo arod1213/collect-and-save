@@ -79,6 +79,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root_c.zig"),
         .imports = &.{
             .{ .name = "sqlite", .module = sqlite },
+            .{ .name = "xml", .module = xml },
             .{ .name = "zli", .module = zli },
             .{ .name = "collect_and_save", .module = mod },
         },

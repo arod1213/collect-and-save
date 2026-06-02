@@ -3,7 +3,8 @@ const Allocator = std.mem.Allocator;
 const Dir = std.Io.Dir;
 const collect = @import("collect.zig");
 
-pub const PathType = enum(u3) {
+// TODO: used to be u3
+pub const PathType = enum(u8) {
     NA = 0,
     External = 1,
     Internal = 3,
@@ -46,6 +47,10 @@ pub const AbletonFile = struct {
         _ = try w.print("{s}\n", .{self.file_path});
         _ = try w.print("\t@: {s}\n", .{self.file_name});
         _ = try w.print("\ttype: {any}\n", .{self.path_type});
+    }
+    pub fn deinit(self: *const AbletonFile, alloc: Allocator) void {
+        alloc.free(self.file_name);
+        alloc.free(self.file_path);
     }
 };
 

@@ -137,7 +137,7 @@ pub fn run(io: std.Io, gpa: Allocator, input: *const CollectInput, filepath: []c
 
     switch (stat.kind) {
         .file => {
-            try lib.verifyAndCollect(io, gpa, &config, filepath);
+            _ = try lib.verifyAndCollect(io, gpa, &config, filepath);
         },
         .directory => {
             var dir = if (std.fs.path.isAbsolute(filepath))
@@ -157,7 +157,7 @@ pub fn run(io: std.Io, gpa: Allocator, input: *const CollectInput, filepath: []c
                         const full_path = try std.fs.path.join(gpa, &[_][]const u8{ filepath, entry.name });
                         defer gpa.free(full_path);
 
-                        lib.verifyAndCollect(io, gpa, &config, full_path) catch continue;
+                        _ = lib.verifyAndCollect(io, gpa, &config, full_path) catch continue;
                     }
                 },
                 .deep => {
@@ -174,7 +174,7 @@ pub fn run(io: std.Io, gpa: Allocator, input: *const CollectInput, filepath: []c
                         session_dir = try lib.collect.getSessionDir(io, entry.path);
                         config.session_dir = session_dir;
 
-                        lib.verifyAndCollect(io, gpa, &config, entry.path) catch continue;
+                        _ = lib.verifyAndCollect(io, gpa, &config, entry.path) catch continue;
                     }
                 },
             }

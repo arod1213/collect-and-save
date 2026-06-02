@@ -65,6 +65,8 @@ pub fn writeChunk(gpa: Allocator, file: *std.Io.File, w: *std.Io.Writer) !void {
     }
 
     const all = try text.toOwnedSlice(gpa);
+    defer gpa.free(all);
+
     _ = try w.write(all);
     try w.flush();
 }

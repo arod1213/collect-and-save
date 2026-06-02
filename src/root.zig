@@ -9,7 +9,7 @@ const sqlite = @import("sqlite");
 pub const database = @import("./commands/database.zig");
 
 const lib = @import("lib/main.zig");
-const commands = lib.commands;
+pub const commands = lib.commands;
 pub const collect = lib.collect;
 pub const gzip = lib.gzip;
 pub const checks = lib.checks;
@@ -19,7 +19,7 @@ pub const xml = lib.xml;
 const Node = xml.types.Node;
 const Doc = xml.types.Doc;
 
-const ableton = lib.ableton;
+pub const ableton = lib.ableton;
 pub const AbletonFile = ableton.AbletonFile;
 const PathType = ableton.PathType;
 
@@ -39,7 +39,7 @@ pub const CollectFileConfig = struct {
 };
 
 /// TUI Input for Collect And Save
-pub fn verifyAndCollect(io: std.Io, gpa: Allocator, config: *const CollectFileConfig, filepath: []const u8) !void {
+pub fn verifyAndCollect(io: std.Io, gpa: Allocator, config: *const CollectFileConfig, filepath: []const u8) !usize {
     defer config.writer.flush() catch {};
     if (!lib.checks.validAbleton(filepath)) {
         _ = try config.writer.print("{s}{s} is not a valid ableton file{s}\n", .{
@@ -47,15 +47,15 @@ pub fn verifyAndCollect(io: std.Io, gpa: Allocator, config: *const CollectFileCo
             std.fs.path.basename(filepath),
             Color.reset.code(),
         });
-        return;
+        return 0;
     }
 
     if (lib.checks.isBackup(filepath)) {
         _ = try config.writer.print("skipping backup: {s}\n", .{std.fs.path.basename(filepath)});
-        return;
+        return 0;
     }
 
-    try collectSet(io, gpa, config, filepath);
+    return try collectSet(io, gpa, config, filepath);
 }
 
 pub fn openFile(io: std.Io, path: []const u8, flags: File.OpenFlags) !File {
@@ -90,7 +90,8 @@ pub fn findFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, session_d
     };
 }
 
-pub fn collectSet(io: std.Io, gpa: Allocator, config: *const CollectFileConfig, filepath: []const u8) !void {
+/// Returns collected count
+pub fn collectSet(io: std.Io, gpa: Allocator, config: *const CollectFileConfig, filepath: []const u8) !usize {
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
     _ = try commands.writeGzipToTmp(io, gpa, tmp_name, filepath);
     defer Dir.cwd().deleteFile(io, tmp_name) catch {};
@@ -106,16 +107,31 @@ pub fn collectSet(io: std.Io, gpa: Allocator, config: *const CollectFileConfig, 
     switch (ableton_version) {
         .nine, .ten => {
             const K = ableton.Ableton10;
-            try processFileRefs(K, io, doc.root.?, config);
+            return try processFileRefs(K, io, doc.root.?, config);
         },
         .eleven, .twelve => {
             const K = ableton.Ableton11;
-            try processFileRefs(K, io, doc.root.?, config);
+            return try processFileRefs(K, io, doc.root.?, config);
         },
     }
 }
 
-fn processFileRefs(comptime T: type, io: std.Io, head: Node, config: *const CollectFileConfig) !void {
+pub fn fetchFiles(comptime T: type, gpa: Allocator, head: lib.xml.types.Node) ![]AbletonFile {
+    var map: std.StringHashMap(T) = try xml.find.getNodesUnique(T, gpa, head, "FileRef", T.key);
+    defer map.deinit();
+
+    var file_list = try std.ArrayList(AbletonFile).initCapacity(gpa, 50);
+    defer file_list.deinit(gpa);
+
+    var iter = map.valueIterator();
+    while (iter.next()) |f| {
+        const ableton_file = f.asAbletonFile(gpa);
+        try file_list.append(gpa, ableton_file);
+    }
+    return try file_list.toOwnedSlice(gpa);
+}
+
+fn processFileRefs(comptime T: type, io: std.Io, head: Node, config: *const CollectFileConfig) !usize {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const gpa = arena.allocator();
@@ -134,6 +150,7 @@ fn processFileRefs(comptime T: type, io: std.Io, head: Node, config: *const Coll
         try config.writer.print("\tNo files to collect..\n", .{});
         try config.writer.flush();
     }
+    return count;
 }
 
 /// TUI Input for Collect And Save
