@@ -23,9 +23,13 @@ pub const File = struct {
     filename: []const u8,
     full_path: []const u8,
     size: u64,
+    pub fn deinit(self: *const File, alloc: Allocator) void {
+        alloc.free(self.filename);
+        alloc.free(self.full_path);
+    }
 };
 
-pub fn findMatch(alloc: Allocator, conn: *sqlite.Conn, basename: []const u8, size: u64) !?File {
+pub fn findMatch(alloc: Allocator, conn: *const sqlite.Conn, basename: []const u8, size: u64) !?File {
     const sql = "SELECT filename, full_path, size FROM files WHERE filename = @name AND size = @size LIMIT 1";
     const stmt = try sqlite.Statement.init(conn, sql);
     defer stmt.close() catch {};
@@ -40,13 +44,14 @@ pub fn findMatch(alloc: Allocator, conn: *sqlite.Conn, basename: []const u8, siz
     };
 }
 
-pub fn scanDir(io: std.Io, alloc: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void {
+pub fn scanDir(io: std.Io, gpa: Allocator, conn: *sqlite.Conn, dir_path: []const u8) !void {
     var dir = if (std.fs.path.isAbsolute(dir_path))
         try std.Io.Dir.openDirAbsolute(io, dir_path, .{ .iterate = true })
     else
         try Dir.cwd().openDir(io, dir_path, .{ .iterate = true });
+    defer dir.close(io);
 
-    var iter = try dir.walk(alloc);
+    var iter = try dir.walk(gpa);
     defer iter.deinit();
     try conn.beginTransaction();
     errdefer conn.closeTransaction(false) catch {};
@@ -69,8 +74,8 @@ pub fn scanDir(io: std.Io, alloc: Allocator, conn: *sqlite.Conn, dir_path: []con
         defer file.close(io);
         const stat = try file.stat(io);
 
-        const fullpath = try std.fs.path.resolve(alloc, &[_][]const u8{ dir_path, entry.path });
-        defer alloc.free(fullpath);
+        const fullpath = try std.fs.path.resolve(gpa, &[_][]const u8{ dir_path, entry.path });
+        defer gpa.free(fullpath);
 
         defer stmt.reset() catch {};
 

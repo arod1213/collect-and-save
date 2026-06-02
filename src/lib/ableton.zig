@@ -2,7 +2,6 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Dir = std.Io.Dir;
 const collect = @import("collect.zig");
-const xml = @import("xml");
 
 pub const PathType = enum(u3) {
     NA = 0,

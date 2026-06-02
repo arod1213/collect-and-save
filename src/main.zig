@@ -39,7 +39,8 @@ const Command = enum {
 };
 
 pub fn main(init: std.process.Init) !void {
-    const alloc = init.arena.allocator();
+    // const alloc = init.arena.allocator();
+    const alloc = init.gpa;
     const io = init.io;
 
     var stdout = std.Io.File.stdout();
@@ -53,7 +54,9 @@ pub fn main(init: std.process.Init) !void {
     var reader = stdin.reader(io, &in_buffer);
 
     const install_path = try installPath(init, io, alloc);
+    defer alloc.free(install_path);
     const db_path = try std.fs.path.join(alloc, &[_][]const u8{ install_path, "collect.db" });
+    defer alloc.free(db_path);
 
     var conn = try lib.database.setup(db_path);
     defer conn.deinit();
@@ -64,6 +67,8 @@ pub fn main(init: std.process.Init) !void {
     defer _ = termios.restore(stdin.handle) catch {};
 
     const args = try init.minimal.args.toSlice(alloc);
+    defer alloc.free(args);
+
     const cmd = std.meta.stringToEnum(Command, args[1]) orelse {
         try enumInfo(Command, &writer.interface);
         return;
@@ -93,13 +98,16 @@ pub fn main(init: std.process.Init) !void {
                 .save => .save,
                 else => return error.InvalidCmd,
             };
-            try run(io, &input, ableton_data.?.filepath, save_cmd, ableton_data.?.depth);
+            try run(io, alloc, &input, ableton_data.?.filepath, save_cmd, ableton_data.?.depth);
         },
         .xml => {
             ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
             var file = try lib.openFile(io, ableton_data.?.filepath, .{});
             defer file.close(io);
-            try lib.gzip.writeXml(io, &file, &writer.interface);
+            lib.gzip.writeXml(io, &file, &writer.interface) catch {
+                try writer.interface.print("failed to open file: '{s}'", .{ableton_data.?.filepath});
+                try writer.flush();
+            };
         },
     }
 }
@@ -110,7 +118,7 @@ const CollectInput = struct {
     db: *sqlite.Conn,
 };
 
-pub fn run(io: std.Io, input: *const CollectInput, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
+pub fn run(io: std.Io, gpa: Allocator, input: *const CollectInput, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
     const stat = Dir.cwd().statFile(io, filepath, .{ .follow_symlinks = false }) catch {
         try input.w.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), filepath, Color.reset.code() });
         try input.w.flush();
@@ -127,12 +135,12 @@ pub fn run(io: std.Io, input: *const CollectInput, filepath: []const u8, cmd: li
         .cmd = cmd,
     };
 
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    // defer arena.deinit();
+    // const alloc = arena.allocator();
     switch (stat.kind) {
         .file => {
-            try lib.verifyAndCollect(io, alloc, &config, filepath);
+            try lib.verifyAndCollect(io, gpa, &config, filepath);
         },
         .directory => {
             var dir = if (std.fs.path.isAbsolute(filepath))
@@ -149,10 +157,11 @@ pub fn run(io: std.Io, input: *const CollectInput, filepath: []const u8, cmd: li
                             .file => {},
                             else => continue,
                         }
-                        const full_path = try std.fs.path.join(alloc, &[_][]const u8{ filepath, entry.name });
+                        const full_path = try std.fs.path.join(gpa, &[_][]const u8{ filepath, entry.name });
+                        defer gpa.free(full_path);
 
-                        defer _ = arena.reset(.free_all);
-                        lib.verifyAndCollect(io, alloc, &config, full_path) catch continue;
+                        // defer _ = arena.reset(.free_all);
+                        lib.verifyAndCollect(io, gpa, &config, full_path) catch continue;
                     }
                 },
                 .deep => {
@@ -169,8 +178,8 @@ pub fn run(io: std.Io, input: *const CollectInput, filepath: []const u8, cmd: li
                         session_dir = try lib.collect.getSessionDir(io, entry.path);
                         config.session_dir = session_dir;
 
-                        defer _ = arena.reset(.free_all); // free main arena if collecting set
-                        lib.verifyAndCollect(io, alloc, &config, entry.path) catch continue;
+                        // defer _ = arena.reset(.free_all); // free main arena if collecting set
+                        lib.verifyAndCollect(io, gpa, &config, entry.path) catch continue;
                     }
                 },
             }

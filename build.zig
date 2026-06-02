@@ -71,4 +71,24 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+
+    // CREATE LIBRARY
+    const c_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .root_source_file = b.path("src/root_c.zig"),
+        .imports = &.{
+            .{ .name = "sqlite", .module = sqlite },
+            .{ .name = "zli", .module = zli },
+            .{ .name = "collect_and_save", .module = mod },
+        },
+    });
+    const c_lib = b.addLibrary(.{
+        .name = "collectnsave",
+        .root_module = c_mod,
+    });
+    const lib_step = b.step("lib", "Build lib");
+    lib_step.dependOn(&c_lib.step);
+    b.installArtifact(c_lib);
+    lib_step.dependOn(b.getInstallStep());
 }

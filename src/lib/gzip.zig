@@ -1,9 +1,9 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub fn unzipXml(alloc: Allocator, file: *std.fs.File) ![]const u8 {
-    var text = try std.ArrayList(u8).initCapacity(alloc, 10000);
-    defer text.deinit(alloc);
+pub fn unzipXml(gpa: Allocator, file: *std.fs.File) ![]const u8 {
+    var text = try std.ArrayList(u8).initCapacity(gpa, 10000);
+    defer text.deinit(gpa);
 
     var file_buffer: [4096]u8 = undefined;
     var reader = file.reader(&file_buffer);
@@ -18,10 +18,10 @@ pub fn unzipXml(alloc: Allocator, file: *std.fs.File) ![]const u8 {
         };
         if (bytes == 0) break;
 
-        try text.appendSlice(alloc, read_buffer[0..bytes]);
+        try text.appendSlice(gpa, read_buffer[0..bytes]);
     }
 
-    return try text.toOwnedSlice(alloc);
+    return try text.toOwnedSlice(gpa);
 }
 
 pub fn writeXml(io: std.Io, file: *std.Io.File, w: *std.Io.Writer) !void {
@@ -44,9 +44,9 @@ pub fn writeXml(io: std.Io, file: *std.Io.File, w: *std.Io.Writer) !void {
     try w.flush();
 }
 
-pub fn writeChunk(alloc: Allocator, file: *std.Io.File, w: *std.Io.Writer) !void {
-    var text = try std.ArrayList(u8).initCapacity(alloc, 10000);
-    defer text.deinit(alloc);
+pub fn writeChunk(gpa: Allocator, file: *std.Io.File, w: *std.Io.Writer) !void {
+    var text = try std.ArrayList(u8).initCapacity(gpa, 10000);
+    defer text.deinit(gpa);
 
     var file_buffer: [4096]u8 = undefined;
     var reader = file.reader(&file_buffer);
@@ -61,10 +61,10 @@ pub fn writeChunk(alloc: Allocator, file: *std.Io.File, w: *std.Io.Writer) !void
         };
         if (bytes == 0) break;
 
-        try text.appendSlice(alloc, read_buffer[0..bytes]);
+        try text.appendSlice(gpa, read_buffer[0..bytes]);
     }
 
-    const all = try text.toOwnedSlice(alloc);
+    const all = try text.toOwnedSlice(gpa);
     _ = try w.write(all);
     try w.flush();
 }

@@ -20,9 +20,10 @@ const Node = xml.types.Node;
 const Doc = xml.types.Doc;
 
 const ableton = lib.ableton;
+pub const AbletonFile = ableton.AbletonFile;
 const PathType = ableton.PathType;
 
-pub const SaveCommand = enum { info, xml, check, save, safe };
+pub const SaveCommand = enum(u8) { info, xml, check, save, safe };
 pub const CollectFileConfig = struct {
     reader: *std.Io.Reader,
     writer: *std.Io.Writer,
@@ -32,7 +33,7 @@ pub const CollectFileConfig = struct {
 };
 
 /// TUI Input for Collect And Save
-pub fn verifyAndCollect(io: std.Io, alloc: Allocator, config: *const CollectFileConfig, filepath: []const u8) !void {
+pub fn verifyAndCollect(io: std.Io, gpa: Allocator, config: *const CollectFileConfig, filepath: []const u8) !void {
     defer config.writer.flush() catch {};
     if (!lib.checks.validAbleton(filepath)) {
         _ = try config.writer.print("{s}{s} is not a valid ableton file{s}\n", .{
@@ -48,7 +49,7 @@ pub fn verifyAndCollect(io: std.Io, alloc: Allocator, config: *const CollectFile
         return;
     }
 
-    try collectSet(io, alloc, config, filepath);
+    try collectSet(io, gpa, config, filepath);
 }
 
 pub fn openFile(io: std.Io, path: []const u8, flags: File.OpenFlags) !File {
@@ -58,20 +59,22 @@ pub fn openFile(io: std.Io, path: []const u8, flags: File.OpenFlags) !File {
     return try Dir.cwd().openFile(io, path, flags);
 }
 
-pub const FileState = enum { missing, found, collected };
+pub const FileState = enum(u8) { missing, found, collected };
 pub const FileRes = struct {
     status: FileState,
     path: []const u8,
 };
 
-fn findFile(io: std.Io, alloc: Allocator, file: ableton.AbletonFile, config: *const CollectFileConfig) !FileRes {
+pub fn findFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, session_dir: std.Io.Dir, db: ?*const sqlite.Conn) !FileRes {
     const sample_path = file.file_path;
-    const collectable = ableton.shouldCollect(io, alloc, config.session_dir, file.path_type, sample_path);
-    if (!collectable) return .{ .path = sample_path, .status = .collected };
+    const should_collect = ableton.shouldCollect(io, gpa, session_dir, file.path_type, sample_path);
+    if (!should_collect) return .{ .path = sample_path, .status = .collected };
     var exists = checks.fileExists(io, sample_path);
-    if (!exists) {
-        const match = try database.findMatch(alloc, config.db, file.file_name, file.file_size);
-        if (match != null) {
+    if (!exists and db != null) {
+        const match = try database.findMatch(gpa, db.?, file.file_name, file.file_size);
+
+        if (match) |m| {
+            defer m.deinit(gpa);
             exists = true;
         }
     }
@@ -81,40 +84,44 @@ fn findFile(io: std.Io, alloc: Allocator, file: ableton.AbletonFile, config: *co
     };
 }
 
-fn collectSet(io: std.Io, alloc: Allocator, config: *const CollectFileConfig, filepath: []const u8) !void {
+pub fn collectSet(io: std.Io, gpa: Allocator, config: *const CollectFileConfig, filepath: []const u8) !void {
     const tmp_name = "./tmp_ableton_collect_and_save.xml";
-    _ = try commands.writeGzipToTmp(io, alloc, tmp_name, filepath);
+    _ = try commands.writeGzipToTmp(io, gpa, tmp_name, filepath);
     defer Dir.cwd().deleteFile(io, tmp_name) catch {};
 
     var doc = try Doc.init(tmp_name);
     if (doc.root == null) return error.NoRoot;
     defer doc.deinit();
 
-    const ableton_version = try commands.getAbletonVersion(alloc, &doc);
+    const ableton_version = try commands.getAbletonVersion(gpa, &doc);
     try config.writer.print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
     try config.writer.flush();
 
     switch (ableton_version) {
         .nine, .ten => {
             const K = ableton.Ableton10;
-            try processFileRefs(K, io, alloc, doc.root.?, config);
+            try processFileRefs(K, io, doc.root.?, config);
         },
         .eleven, .twelve => {
             const K = ableton.Ableton11;
-            try processFileRefs(K, io, alloc, doc.root.?, config);
+            try processFileRefs(K, io, doc.root.?, config);
         },
     }
 }
 
-fn processFileRefs(comptime T: type, io: std.Io, alloc: Allocator, head: Node, config: *const CollectFileConfig) !void {
-    var map: std.StringHashMap(T) = try xml.find.getNodesUnique(T, alloc, head, "FileRef", T.key);
+fn processFileRefs(comptime T: type, io: std.Io, head: Node, config: *const CollectFileConfig) !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const gpa = arena.allocator();
+
+    var map: std.StringHashMap(T) = try xml.find.getNodesUnique(T, gpa, head, "FileRef", T.key);
     defer map.deinit();
 
     var count: usize = 0;
     var iter = map.valueIterator();
     while (iter.next()) |f| {
-        const ableton_file = f.asAbletonFile(alloc);
-        collectFile(io, alloc, ableton_file, config) catch continue;
+        const ableton_file = f.asAbletonFile(gpa);
+        collectFile(io, gpa, ableton_file, config) catch continue;
         count += 1;
     }
     if (count == 0) {
@@ -127,11 +134,11 @@ fn processFileRefs(comptime T: type, io: std.Io, alloc: Allocator, head: Node, c
 /// Config.cmd = .check --- Show per file if missing, or found match
 /// Config.cmd = .save --- Save all found files
 /// Config.cmd = .safe --- Prompt to save each file
-pub fn collectFile(io: std.Io, alloc: Allocator, file: ableton.AbletonFile, config: *const CollectFileConfig) !void {
+pub fn collectFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, config: *const CollectFileConfig) !void {
     const sample_path = file.file_path;
     switch (config.cmd) {
         .check => {
-            const file_info = try findFile(io, alloc, file, config);
+            const file_info = try findFile(io, gpa, file, config.session_dir, config.db);
             const valid = switch (file_info.status) {
                 .missing => false,
                 .collected => return {},
@@ -140,11 +147,11 @@ pub fn collectFile(io: std.Io, alloc: Allocator, file: ableton.AbletonFile, conf
             commands.writeFileInfo(sample_path, "would save", valid);
         },
         .save => {
-            const file_info = try findFile(io, alloc, file, config);
+            const file_info = try findFile(io, gpa, file, config.session_dir, config.db);
             switch (file_info.status) {
                 .missing => return error.MissingFile,
                 .collected => return {},
-                .found => try saveFile(io, alloc, file, config),
+                .found => try saveFile(io, gpa, file, config),
             }
             commands.writeFileInfo(sample_path, "saved", true);
         },
@@ -153,11 +160,14 @@ pub fn collectFile(io: std.Io, alloc: Allocator, file: ableton.AbletonFile, conf
             try config.writer.flush();
         },
         .safe => {
-            const collectable = ableton.shouldCollect(io, alloc, config.session_dir, file.path_type, sample_path);
-            if (!collectable) return error.FileAlreadyFound;
+            const file_info = try findFile(io, gpa, file, config.session_dir, config.db);
+            switch (file_info.status) {
+                .collected, .found => return {}, // dont prompt for found files
+                .missing => {},
+            }
             const save = try commands.askToSave(config.reader, config.writer, sample_path);
             if (save) {
-                const succeed = saveFile(io, alloc, file, config) catch null;
+                const succeed = saveFile(io, gpa, file, config) catch null;
                 commands.writeFileInfo(sample_path, "saved", succeed != null);
             } else {
                 try config.writer.print("\tskipped\n", .{});
@@ -169,12 +179,13 @@ pub fn collectFile(io: std.Io, alloc: Allocator, file: ableton.AbletonFile, conf
     return {};
 }
 
-fn saveFile(io: std.Io, alloc: Allocator, file: ableton.AbletonFile, config: *const CollectFileConfig) !void {
+fn saveFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, config: *const CollectFileConfig) !void {
     const sample_path = file.file_path;
-    commands.resolveFile(io, alloc, config.session_dir, sample_path) catch |e| {
-        const match = try database.findMatch(alloc, config.db, file.file_name, file.file_size);
+    commands.resolveFile(io, gpa, config.session_dir, sample_path) catch |e| {
+        const match = try database.findMatch(gpa, config.db, file.file_name, file.file_size);
         if (match) |m| {
-            try commands.resolveFile(io, alloc, config.session_dir, m.full_path);
+            defer m.deinit(gpa);
+            try commands.resolveFile(io, gpa, config.session_dir, m.full_path);
         } else {
             return e;
         }
