@@ -115,21 +115,24 @@ pub fn main(init: std.process.Init) !void {
         .r = &reader.interface,
         .db = &conn,
     };
-    const ableton_data: ?AbletonData = if (args.len < 3) null else zli.parseOrdered(AbletonData, args[2..], .offset) catch null;
+    defer input.w.flush() catch {};
+
     switch (cmd) {
         .reset => return try lib.database.reset(&conn),
         .scan => {
+            const ableton_data: AbletonData = zli.parseOrdered(AbletonData, args[2..], .offset) catch {
+                try input.w.print("{s}please provide a file/folder{s}\n", .{ Color.red.code(), Color.reset.code() });
+                return;
+            };
             _ = try input.w.print("\rscanning files please wait..\r", .{});
             try input.w.flush();
-            if (ableton_data == null) {
-                try input.w.print("{s}please provide a folder of samples to scan{s}\n", .{ Color.red.code(), Color.reset.code() });
-                try Command.scanInfo(input.w);
-                try input.w.flush();
-                return;
-            }
-            return try lib.database.scanDir(io, alloc, &conn, ableton_data.?.filepath);
+            return try lib.database.scanDir(io, alloc, &conn, ableton_data.filepath);
         },
         .check, .safe, .save => |x| {
+            const ableton_data: AbletonData = zli.parseOrdered(AbletonData, args[2..], .offset) catch {
+                try input.w.print("{s}please provide a file/folder{s}\n", .{ Color.red.code(), Color.reset.code() });
+                return;
+            };
             ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
             const save_cmd: lib.SaveCommand = switch (x) {
                 .check => .check,
@@ -137,14 +140,17 @@ pub fn main(init: std.process.Init) !void {
                 .save => .save,
                 else => return error.InvalidCmd,
             };
-            try run(io, alloc, &input, ableton_data.?.filepath, save_cmd, ableton_data.?.depth);
+            try run(io, alloc, &input, ableton_data.filepath, save_cmd, ableton_data.depth);
         },
         .xml => {
-            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
-            var file = try lib.openFile(io, ableton_data.?.filepath, .{});
+            const ableton_data: AbletonData = zli.parseOrdered(AbletonData, args[2..], .offset) catch {
+                try input.w.print("{s}please provide a file/folder{s}\n", .{ Color.red.code(), Color.reset.code() });
+                return;
+            };
+            var file = try lib.openFile(io, ableton_data.filepath, .{});
             defer file.close(io);
             lib.gzip.writeXml(io, &file, &writer.interface) catch {
-                try writer.interface.print("failed to open file: '{s}'", .{ableton_data.?.filepath});
+                try writer.interface.print("failed to open file: '{s}'", .{ableton_data.filepath});
                 try writer.flush();
             };
         },

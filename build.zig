@@ -96,20 +96,20 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(c_lib);
     lib_step.dependOn(b.getInstallStep());
 
-    switch (builtin.target.os.tag) {
-        .macos => {
-            const xcframework = XCFrameworkStep.create(b, .{
-                .name = "CollectNSave",
-                .out_path = "release/collectnsave.xcframework",
-                .libraries = &[_]XCFrameworkStep.Library{.{
-                    .library = b.path("zig-out/lib/libcollectnsave.dylib"),
-                    .headers = b.path("lib"),
-                    .dsym = null,
-                }},
-            });
-            xcframework.step.dependOn(&c_lib.step);
-            b.default_step.dependOn(xcframework.step);
-        },
-        else => {},
-    }
+    // switch (builtin.target.os.tag) {
+    //     .macos => {
+    //         const xcframework = XCFrameworkStep.create(b, .{
+    //             .name = "CollectNSave",
+    //             .out_path = "release/collectnsave.xcframework",
+    //             .libraries = &[_]XCFrameworkStep.Library{.{
+    //                 .library = b.path("zig-out/lib/libcollectnsave.dylib"),
+    //                 .headers = b.path("lib"),
+    //                 .dsym = null,
+    //             }},
+    //         });
+    //         xcframework.step.dependOn(&c_lib.step);
+    //         b.default_step.dependOn(xcframework.step);
+    //     },
+    //     else => {},
+    // }
 }
