@@ -5,6 +5,7 @@ zig-pkg/
 ableton/
 dist/
 xml/
+release/
 
 proj 1/
 proj 2/

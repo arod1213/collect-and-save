@@ -12,8 +12,8 @@ const Color = lib.Color;
 const zli = @import("zli");
 const termios = @import("termios.zig");
 
-pub fn installPath(init: std.process.Init, io: std.Io, alloc: Allocator) ![]const u8 {
-    const home = init.environ_map.get("HOME") orelse return error.NoHomeDir;
+pub fn installPath(env: *const std.process.Environ.Map, io: std.Io, alloc: Allocator) ![]const u8 {
+    const home = env.get("HOME") orelse return error.NoHomeDir;
     const path = try std.fs.path.join(alloc, &[_][]const u8{ home, "Documents/CollectAndSave" });
 
     _ = Dir.createDirAbsolute(io, path, .default_file) catch |e| {
@@ -53,7 +53,7 @@ pub fn main(init: std.process.Init) !void {
     var in_buffer: [4096]u8 = undefined;
     var reader = stdin.reader(io, &in_buffer);
 
-    const install_path = try installPath(init, io, alloc);
+    const install_path = try installPath(init.environ_map, io, alloc);
     defer alloc.free(install_path);
     const db_path = try std.fs.path.join(alloc, &[_][]const u8{ install_path, "collect.db" });
     defer alloc.free(db_path);
