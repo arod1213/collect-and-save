@@ -167,7 +167,7 @@ pub fn collectFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, config
                 .collected => return {},
                 .found => true,
             };
-            commands.writeFileInfo(sample_path, "would save", valid);
+            commands.writeFileInfo(config.writer, sample_path, "would save", valid) catch {};
         },
         .save => {
             const file_info = try findFile(io, gpa, file, config.session_dir, config.db);
@@ -176,11 +176,10 @@ pub fn collectFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, config
                 .collected => return {},
                 .found => try saveFile(io, gpa, file, config),
             }
-            commands.writeFileInfo(sample_path, "saved", true);
+            commands.writeFileInfo(config.writer, sample_path, "saved", true) catch {};
         },
         .info => {
             try config.writer.print("{f}\n", .{file});
-            try config.writer.flush();
         },
         .safe => {
             const file_info = try findFile(io, gpa, file, config.session_dir, config.db);
@@ -191,14 +190,14 @@ pub fn collectFile(io: std.Io, gpa: Allocator, file: ableton.AbletonFile, config
             const save = try commands.askToSave(config.reader, config.writer, sample_path);
             if (save) {
                 const succeed = saveFile(io, gpa, file, config) catch null;
-                commands.writeFileInfo(sample_path, "saved", succeed != null);
+                commands.writeFileInfo(config.writer, sample_path, "saved", succeed != null) catch {};
             } else {
                 try config.writer.print("\tskipped\n", .{});
-                try config.writer.flush();
             }
         },
         .xml => {},
     }
+    try config.writer.flush();
     return {};
 }
 

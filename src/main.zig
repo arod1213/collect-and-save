@@ -41,14 +41,32 @@ const Command = enum {
     /// reset
     reset,
 
+    pub fn scanInfo(w: *std.Io.Writer) !void {
+        try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "scan", Color.reset.code(), "add a folder of samples to be checked when searching for missing files" });
+        try w.print("{s}\t\tusage: {s} <folder>{s}\n", .{ Color.yellow.code(), "scan", Color.reset.code() });
+    }
+
     pub fn info(w: *std.Io.Writer) !void {
         try w.print("{s}valid command options are:{s}\n", .{ Color.blue.code(), Color.reset.code() });
         try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "check", Color.reset.code(), "dry-run to visualize which files are missing" });
+        try w.print("{s}\t\tusage: {s} <file/folder> <none/deep>{s}\n", .{ Color.yellow.code(), "check", Color.reset.code() });
+
         try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "safe", Color.reset.code(), "prompted file by file to [collect/ignore]" });
+        try w.print("{s}\t\tusage: {s} <file/folder> <none/deep>{s}\n", .{ Color.yellow.code(), "safe", Color.reset.code() });
+
         try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "save", Color.reset.code(), "saves all missing files" });
+        try w.print("{s}\t\tusage: {s} <file/folder> <none/deep>{s}\n", .{ Color.yellow.code(), "save", Color.reset.code() });
+
+        try Command.scanInfo(w);
+
         try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "xml", Color.reset.code(), "visualize ableton's interal xml structure" });
+        try w.print("{s}\t\tusage: {s} <file>{s}\n", .{ Color.yellow.code(), "xml", Color.reset.code() });
+
         try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "scan", Color.reset.code(), "add a folder of samples to be checked when searching for missing files" });
+        try w.print("{s}\t\tusage: {s} <folder>{s}\n", .{ Color.yellow.code(), "scan", Color.reset.code() });
+
         try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "reset", Color.reset.code(), "remove all saved folders of samples" });
+        try w.print("{s}\t\tusage: {s}{s}\n", .{ Color.yellow.code(), "reset", Color.reset.code() });
         try w.flush();
     }
 };
@@ -103,7 +121,12 @@ pub fn main(init: std.process.Init) !void {
         .scan => {
             _ = try input.w.print("\rscanning files please wait..\r", .{});
             try input.w.flush();
-            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
+            if (ableton_data == null) {
+                try input.w.print("{s}please provide a folder of samples to scan{s}\n", .{ Color.red.code(), Color.reset.code() });
+                try Command.scanInfo(input.w);
+                try input.w.flush();
+                return;
+            }
             return try lib.database.scanDir(io, alloc, &conn, ableton_data.?.filepath);
         },
         .check, .safe, .save => |x| {

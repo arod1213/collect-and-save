@@ -24,12 +24,12 @@ pub fn openFile(io: std.Io, filepath: []const u8, flags: std.Io.File.OpenFlags) 
     }
 }
 
-pub fn writeFileInfo(filepath: []const u8, prefix: []const u8, success: bool) void {
+pub fn writeFileInfo(w: *std.Io.Writer, filepath: []const u8, prefix: []const u8, success: bool) !void {
     const path = std.fs.path.basename(filepath);
     if (success) {
-        print("\t{s}: {s}{s}{s}\n", .{ prefix, Color.green.code(), path, Color.reset.code() });
+        try w.print("\t{s}: {s}{s}{s}\n", .{ prefix, Color.green.code(), path, Color.reset.code() });
     } else {
-        print("\t{s}: {s}{s}{s}\n", .{ "missing", Color.red.code(), path, Color.reset.code() });
+        try w.print("\t{s}: {s}{s}{s}\n", .{ "missing", Color.red.code(), path, Color.reset.code() });
     }
 }
 
