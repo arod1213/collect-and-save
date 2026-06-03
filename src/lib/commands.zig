@@ -86,7 +86,7 @@ pub fn writeGzipToTmp(io: std.Io, alloc: Allocator, tmp_name: []const u8, filepa
     var write_buffer: [4096]u8 = undefined;
     var writer = tmp_file.writer(io, &write_buffer);
     switch (builtin.target.os.tag) {
-        .macos => try gzip.writeChunk(alloc, &file, &writer.interface),
+        .macos => try gzip.writeChunk(io, alloc, &file, &writer.interface),
         else => try gzip.writeXml(io, &file, &writer.interface),
     }
 }

@@ -44,12 +44,12 @@ pub fn writeXml(io: std.Io, file: *std.Io.File, w: *std.Io.Writer) !void {
     try w.flush();
 }
 
-pub fn writeChunk(gpa: Allocator, file: *std.Io.File, w: *std.Io.Writer) !void {
+pub fn writeChunk(io: std.Io, gpa: Allocator, file: *std.Io.File, w: *std.Io.Writer) !void {
     var text = try std.ArrayList(u8).initCapacity(gpa, 10000);
     defer text.deinit(gpa);
 
     var file_buffer: [4096]u8 = undefined;
-    var reader = file.reader(&file_buffer);
+    var reader = file.reader(io, &file_buffer);
 
     var zip_buf: [std.compress.flate.max_window_len]u8 = undefined;
     var decompressor = std.compress.flate.Decompress.init(&reader.interface, .gzip, &zip_buf);
