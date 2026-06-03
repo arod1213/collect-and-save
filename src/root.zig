@@ -100,7 +100,10 @@ pub fn collectSet(io: std.Io, gpa: Allocator, config: *const CollectFileConfig, 
     if (doc.root == null) return error.NoRoot;
     defer doc.deinit();
 
-    const ableton_version = try commands.getAbletonVersion(gpa, &doc);
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    const ableton_version = try commands.getAbletonVersion(arena.allocator(), &doc);
     try config.writer.print("Ableton {d} Session: {s}{s}{s}\n", .{ @intFromEnum(ableton_version), Color.yellow.code(), std.fs.path.basename(filepath), Color.reset.code() });
     try config.writer.flush();
 

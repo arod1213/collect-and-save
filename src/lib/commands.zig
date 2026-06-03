@@ -62,8 +62,8 @@ pub fn collectFileSafe(io: std.Io, alloc: Allocator, reader: *std.Io.Reader, wri
 }
 
 const VersionError = error{ UnknownVersion, UnsupportedVersion };
-pub fn getAbletonVersion(alloc: Allocator, doc: *Doc) VersionError!ableton.AbletonVersion {
-    const ableton_info = xml.parse.nodeToT(ableton.Header, alloc, doc.root.?) catch {
+pub fn getAbletonVersion(arena: Allocator, doc: *Doc) VersionError!ableton.AbletonVersion {
+    const ableton_info = xml.parse.nodeToT(ableton.Header, arena, doc.root.?) catch {
         print("Unsupported Ableton Version\n", .{});
         return VersionError.UnknownVersion;
     };
