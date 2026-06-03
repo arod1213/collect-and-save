@@ -16,11 +16,11 @@ const Doc = xml.types.Doc;
 const ableton = @import("ableton.zig");
 const PathType = ableton.PathType;
 
-pub fn openFile(filepath: []const u8, flags: std.fs.File.OpenFlags) !std.fs.File {
+pub fn openFile(io: std.Io, filepath: []const u8, flags: std.Io.File.OpenFlags) !std.Io.File {
     if (std.fs.path.isAbsolute(filepath)) {
-        return try std.fs.openFileAbsolute(filepath, flags);
+        return try std.Io.Dir.openFileAbsolute(io, filepath, flags);
     } else {
-        return try std.fs.cwd().openFile(filepath, flags);
+        return try std.Io.Dir.cwd().openFile(io, filepath, flags);
     }
 }
 

@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub fn unzipXml(gpa: Allocator, file: *std.fs.File) ![]const u8 {
+pub fn unzipXml(gpa: Allocator, file: *std.Io.File) ![]const u8 {
     var text = try std.ArrayList(u8).initCapacity(gpa, 10000);
     defer text.deinit(gpa);
 
