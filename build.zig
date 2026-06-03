@@ -100,7 +100,7 @@ pub fn build(b: *std.Build) void {
         .macos => {
             const xcframework = XCFrameworkStep.create(b, .{
                 .name = "CollectNSave",
-                .out_path = "macos/collectnsave.xcframework",
+                .out_path = "release/collectnsave.xcframework",
                 .libraries = &[_]XCFrameworkStep.Library{.{
                     .library = b.path("zig-out/lib/libcollectnsave.dylib"),
                     .headers = b.path("lib"),

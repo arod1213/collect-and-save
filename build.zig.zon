@@ -41,8 +41,8 @@
             .hash = "sqlzig-0.0.0-TWhuvOcCmAA5RHN4S0srxpCl6mol7PyhS2YFnjvQDgCK",
         },
         .zxml = .{
-            .url = "git+https://github.com/arod1213/zxml.git#ebfc909dce9a60fc4c113287e32776698e02a3e1",
-            .hash = "zxml-0.0.0-vPmDf2pVAAAV20wm5jtPseNSxxQf4BGvwYQS4NrUsftp",
+            .url = "git+https://github.com/arod1213/zxml.git#24c8599893bb491f68e0a84af6319dd30134a89b",
+            .hash = "zxml-0.0.0-vPmDfxBVAACbonjssuWFYtJdmNxNLHvwzmoyMTxtugm5",
         },
     },
     .paths = .{

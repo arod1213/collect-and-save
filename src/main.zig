@@ -28,14 +28,29 @@ pub fn installPath(env: *const std.process.Environ.Map, io: std.Io, alloc: Alloc
 const Depth = enum { none, deep };
 const AbletonData = struct { filepath: []const u8, depth: Depth = .none };
 const Command = enum {
-    // ableton
-    check, // safe <file/folder> <depth>
-    safe, // safe <file/folder> <depth>
-    save, // save <file/folder> <depth>
-    xml, // xml <file>
-    // db
-    scan, // scan <folder>
-    reset, // reset
+    /// check <file/folder> <depth>
+    check,
+    /// safe <file/folder> <depth>
+    safe,
+    /// save <file/folder> <depth>
+    save,
+    /// xml <file>
+    xml,
+    /// scan <folder>
+    scan,
+    /// reset
+    reset,
+
+    pub fn info(w: *std.Io.Writer) !void {
+        try w.print("{s}valid command options are:{s}\n", .{ Color.blue.code(), Color.reset.code() });
+        try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "check", Color.reset.code(), "dry-run to visualize which files are missing" });
+        try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "safe", Color.reset.code(), "prompted file by file to [collect/ignore]" });
+        try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "save", Color.reset.code(), "saves all missing files" });
+        try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "xml", Color.reset.code(), "visualize ableton's interal xml structure" });
+        try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "scan", Color.reset.code(), "add a folder of samples to be checked when searching for missing files" });
+        try w.print("{s}\t{s:<5}{s} - {s}\n", .{ Color.magenta.code(), "reset", Color.reset.code(), "remove all saved folders of samples" });
+        try w.flush();
+    }
 };
 
 pub fn main(init: std.process.Init) !void {
@@ -69,8 +84,12 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(alloc);
     defer alloc.free(args);
 
+    if (args.len < 2) {
+        try Command.info(&writer.interface);
+        return;
+    }
     const cmd = std.meta.stringToEnum(Command, args[1]) orelse {
-        try enumInfo(Command, &writer.interface);
+        try Command.info(&writer.interface);
         return;
     };
     const input = CollectInput{
@@ -88,10 +107,7 @@ pub fn main(init: std.process.Init) !void {
             return try lib.database.scanDir(io, alloc, &conn, ableton_data.?.filepath);
         },
         .check, .safe, .save => |x| {
-            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch |e| {
-                std.log.err("err {any}", .{e});
-                return;
-            };
+            ensureNotNull(AbletonData, &writer.interface, ableton_data) catch return;
             const save_cmd: lib.SaveCommand = switch (x) {
                 .check => .check,
                 .safe => .safe,
@@ -120,7 +136,7 @@ const CollectInput = struct {
 
 pub fn run(io: std.Io, gpa: Allocator, input: *const CollectInput, filepath: []const u8, cmd: lib.SaveCommand, mode: Depth) !void {
     const stat = Dir.cwd().statFile(io, filepath, .{ .follow_symlinks = false }) catch {
-        try input.w.print("{s}failed to find / read: {s}{s}\n", .{ Color.red.code(), filepath, Color.reset.code() });
+        try input.w.print("{s}failed to find / read: {s}'{s}'\n", .{ Color.red.code(), Color.reset.code(), filepath });
         try input.w.flush();
         return;
     };
@@ -192,6 +208,7 @@ fn ensureNotNull(comptime T: type, w: *Writer, filepath: ?T) !void {
             Color.red.code(),
             Color.reset.code(),
         });
+        _ = try w.print("\tformat is: {s}<cmd> <file/folder> <none/deep>{s}\n", .{ Color.blue.code(), Color.reset.code() });
         try w.flush();
         return error.NoFilepath;
     }
